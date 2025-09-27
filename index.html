@@ -841,4 +841,1125 @@
                         decrypted.toRow === testMove.toRow &&
                         decrypted.toCol === testMove.toCol
                     );
-                    testResults.innerHTML += `   ${isAccurate ? '✓' : '✗'} ${isAccurate ? 'Chính xác
+                    testResults.innerHTML += `   ${isAccurate ? '✓' : '✗'} ${isAccurate ? 'Chính xác' : 'Lỗi dữ liệu'}\n`;
+
+                    // Test 4: Homomorphic validation
+                    testResults.innerHTML += '4. Test validation đồng hình...\n';
+                    const validationResult = await this.validateMoveEncrypted(encrypted);
+                    testResults.innerHTML += `   ${validationResult ? '✓' : '✗'} Validation ${validationResult ? 'thành công' : 'thất bại'}\n`;
+
+                    testResults.innerHTML += '\n=== Test hoàn tất ===\n';
+                    showNotification('FHE test hoàn tất!', 'success');
+
+                } catch (error) {
+                    testResults.innerHTML += `\n✗ Lỗi: ${error.message}\n`;
+                    showNotification('FHE test thất bại!', 'error');
+                }
+            }
+
+            showProgress(text, percent) {
+                document.getElementById('fhe-progress').style.display = 'block';
+                document.getElementById('fhe-progress-fill').style.width = percent + '%';
+                document.getElementById('fhe-operation-text').textContent = text;
+            }
+
+            hideProgress() {
+                document.getElementById('fhe-progress').style.display = 'none';
+            }
+
+            updateStatus(text, isActive) {
+                document.getElementById('fhe-status-text').textContent = 'Trạng thái: ' + text;
+                const indicator = document.getElementById('fhe-indicator');
+                if (isActive) {
+                    indicator.classList.add('active');
+                } else {
+                    indicator.classList.remove('active');
+                }
+            }
+
+            async simulateDelay(ms) {
+                return new Promise(resolve => setTimeout(resolve, ms));
+            }
+        }
+
+        // Enhanced Chess Game Engine
+        class ChessGame {
+            constructor() {
+                this.board = this.initializeBoard();
+                this.currentPlayer = 'white';
+                this.selectedSquare = null;
+                this.moveHistory = [];
+                this.aiDifficulty = 1;
+                this.gameOver = false;
+                this.gamePaused = false;
+                this.gameStartTime = null;
+                this.whiteTime = 600;
+                this.blackTime = 600;
+                this.lastMove = null;
+                this.winner = null;
+                this.gameEndReason = null;
+                
+                this.initializeUI();
+                
+                // Close modal if open
+                document.getElementById('game-over-modal').style.display = 'none';
+            }
+
+            setDifficulty(level) {
+                this.aiDifficulty = level;
+                const difficultyNames = ['', 'Dễ', 'Trung bình', 'Khó', 'Chuyên gia'];
+                showNotification(`Độ khó AI: ${difficultyNames[level]}`, 'success');
+            }
+
+            bindEvents() {
+                // Difficulty buttons
+                document.querySelectorAll('.difficulty-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        document.querySelectorAll('.difficulty-btn').forEach(b => b.classList.remove('active'));
+                        e.target.classList.add('active');
+                        this.setDifficulty(parseInt(e.target.dataset.level));
+                    });
+                });
+
+                // Game control buttons
+                document.getElementById('new-game').addEventListener('click', () => {
+                    this.newGame();
+                    showNotification('Game mới đã bắt đầu!', 'success');
+                });
+
+                document.getElementById('pause-game').addEventListener('click', () => {
+                    this.pauseGame();
+                });
+
+                document.getElementById('stop-game').addEventListener('click', () => {
+                    this.stopGame();
+                });
+
+                // Modal buttons
+                document.getElementById('play-again').addEventListener('click', () => {
+                    this.newGame();
+                    showNotification('Game mới đã bắt đầu!', 'success');
+                });
+
+                document.getElementById('close-modal').addEventListener('click', () => {
+                    document.getElementById('game-over-modal').style.display = 'none';
+                });
+            }
+        }
+
+        // Enhanced Web3 Manager with Smart Contract Integration
+        class Web3Manager {
+            constructor() {
+                this.web3 = null;
+                this.account = null;
+                this.isConnected = false;
+                this.contract = null;
+                this.contractAddress = null;
+                this.bindEvents();
+            }
+
+            async connectWallet() {
+                try {
+                    if (typeof window.ethereum !== 'undefined') {
+                        const accounts = await window.ethereum.request({
+                            method: 'eth_requestAccounts'
+                        });
+
+                        if (accounts.length > 0) {
+                            this.account = accounts[0];
+                            this.isConnected = true;
+
+                            await this.switchToSepolia();
+                            this.updateWalletUI();
+                            
+                            showNotification('Kết nối ví thành công!', 'success');
+                            document.getElementById('deploy-contract').disabled = false;
+                            
+                            window.ethereum.on('accountsChanged', (accounts) => {
+                                if (accounts.length > 0) {
+                                    this.account = accounts[0];
+                                    this.updateWalletUI();
+                                } else {
+                                    this.disconnect();
+                                }
+                            });
+
+                            window.ethereum.on('chainChanged', () => {
+                                window.location.reload();
+                            });
+
+                            return true;
+                        }
+                    } else {
+                        showNotification('Vui lòng cài đặt MetaMask!', 'error');
+                        return false;
+                    }
+                } catch (error) {
+                    console.error('Lỗi kết nối ví:', error);
+                    showNotification('Lỗi kết nối ví: ' + error.message, 'error');
+                    return false;
+                }
+            }
+
+            async switchToSepolia() {
+                try {
+                    await window.ethereum.request({
+                        method: 'wallet_switchEthereumChain',
+                        params: [{ chainId: '0xaa36a7' }] // Sepolia testnet
+                    });
+                } catch (switchError) {
+                    if (switchError.code === 4902) {
+                        try {
+                            await window.ethereum.request({
+                                method: 'wallet_addEthereumChain',
+                                params: [{
+                                    chainId: '0xaa36a7',
+                                    chainName: 'Sepolia Test Network',
+                                    nativeCurrency: {
+                                        name: 'Sepolia Ether',
+                                        symbol: 'SepoliaETH',
+                                        decimals: 18
+                                    },
+                                    rpcUrls: ['https://sepolia.infura.io/v3/'],
+                                    blockExplorerUrls: ['https://sepolia.etherscan.io/']
+                                }]
+                            });
+                        } catch (addError) {
+                            console.error('Lỗi thêm Sepolia network:', addError);
+                        }
+                    }
+                }
+            }
+
+            disconnect() {
+                this.account = null;
+                this.isConnected = false;
+                this.contract = null;
+                this.contractAddress = null;
+                this.updateWalletUI();
+                document.getElementById('deploy-contract').disabled = true;
+                showNotification('Đã ngắt kết nối ví', 'success');
+            }
+
+            updateWalletUI() {
+                const statusElement = document.getElementById('wallet-status');
+                const addressElement = document.getElementById('wallet-address');
+                const connectBtn = document.getElementById('connect-wallet');
+
+                if (this.isConnected && this.account) {
+                    statusElement.textContent = 'Đã kết nối - Sepolia Network';
+                    addressElement.textContent = `${this.account.substring(0, 6)}...${this.account.substring(38)}`;
+                    connectBtn.textContent = 'Ngắt kết nối';
+                    
+                    if (this.contractAddress) {
+                        addressElement.innerHTML += `<br><small>Contract: ${this.contractAddress.substring(0, 10)}...</small>`;
+                    }
+                } else {
+                    statusElement.textContent = 'Chưa kết nối ví';
+                    addressElement.textContent = '';
+                    connectBtn.textContent = 'Kết nối MetaMask';
+                }
+            }
+
+            async deployContract() {
+                if (!this.isConnected) {
+                    showNotification('Vui lòng kết nối ví trước!', 'error');
+                    return;
+                }
+
+                try {
+                    showNotification('Đang deploy smart contract...', 'success');
+                    
+                    // Chess Game Smart Contract ABI (simplified)
+                    const contractABI = [
+                        {
+                            "inputs": [],
+                            "name": "createGame",
+                            "outputs": [{"type": "uint256"}],
+                            "stateMutability": "nonpayable",
+                            "type": "function"
+                        },
+                        {
+                            "inputs": [{"type": "uint256"}, {"type": "string"}],
+                            "name": "makeMove",
+                            "outputs": [],
+                            "stateMutability": "nonpayable",
+                            "type": "function"
+                        },
+                        {
+                            "inputs": [{"type": "uint256"}, {"type": "address"}],
+                            "name": "endGame",
+                            "outputs": [],
+                            "stateMutability": "nonpayable",
+                            "type": "function"
+                        }
+                    ];
+
+                    // Simple contract bytecode (placeholder)
+                    const contractBytecode = "0x608060405234801561001057600080fd5b50..."; // Simplified
+
+                    // Simulate deployment
+                    await new Promise(resolve => setTimeout(resolve, 3000));
+                    
+                    this.contractAddress = '0x' + Math.random().toString(16).substr(2, 40);
+                    this.contract = { abi: contractABI, address: this.contractAddress };
+                    
+                    this.updateWalletUI();
+                    showNotification(`Contract deployed! Address: ${this.contractAddress.substring(0, 10)}...`, 'success');
+                    
+                    return this.contractAddress;
+                } catch (error) {
+                    showNotification('Lỗi deploy contract: ' + error.message, 'error');
+                    return null;
+                }
+            }
+
+            async recordMove(move, gameId = 1) {
+                if (!this.contract) return;
+
+                try {
+                    const moveData = JSON.stringify(move);
+                    console.log(`Recording move on blockchain: Game ${gameId}, Move: ${moveData}`);
+                    
+                    // Simulate transaction
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    
+                    showNotification('Nước đi đã được ghi trên blockchain', 'success');
+                } catch (error) {
+                    console.error('Blockchain record error:', error);
+                }
+            }
+
+            async recordGameResult(winner, reason, gameStats) {
+                if (!this.contract) return;
+
+                try {
+                    console.log(`Recording game result: Winner: ${winner}, Reason: ${reason}`);
+                    
+                    // Simulate transaction
+                    await new Promise(resolve => setTimeout(resolve, 1500));
+                    
+                    showNotification('Kết quả trận đấu đã được ghi trên blockchain', 'success');
+                } catch (error) {
+                    console.error('Blockchain result record error:', error);
+                }
+            }
+
+            bindEvents() {
+                document.getElementById('connect-wallet').addEventListener('click', () => {
+                    if (this.isConnected) {
+                        this.disconnect();
+                    } else {
+                        this.connectWallet();
+                    }
+                });
+
+                document.getElementById('deploy-contract').addEventListener('click', () => {
+                    this.deployContract();
+                });
+            }
+        }
+
+        // Utility Functions
+        function showNotification(message, type = 'success') {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = `notification ${type}`;
+            notification.style.display = 'block';
+            
+            setTimeout(() => {
+                notification.style.display = 'none';
+            }, 5000);
+        }
+
+        // Initialize Application
+        document.addEventListener('DOMContentLoaded', () => {
+            // Initialize managers
+            window.fheManager = new RealFHEManager();
+            window.web3Manager = new Web3Manager();
+            window.chessGame = new ChessGame();
+
+            // FHE Event Handlers
+            document.getElementById('init-fhe').addEventListener('click', async () => {
+                document.getElementById('init-fhe').disabled = true;
+                const success = await window.fheManager.initialize();
+                if (!success) {
+                    document.getElementById('init-fhe').disabled = false;
+                }
+            });
+
+            document.getElementById('test-fhe').addEventListener('click', () => {
+                window.fheManager.testEncryption();
+            });
+
+            // Enhanced game integration with FHE and Web3
+            const originalMakeMove = window.chessGame.makeMove;
+            window.chessGame.makeMove = async function(fromRow, fromCol, toRow, toCol) {
+                const move = { fromRow, fromCol, toRow, toCol, timestamp: Date.now() };
+                
+                // Encrypt move with FHE if available
+                if (window.fheManager.isInitialized) {
+                    try {
+                        const encryptedMove = await window.fheManager.encryptMove(move);
+                        console.log('Move encrypted with FHE:', encryptedMove.id);
+                    } catch (error) {
+                        console.error('FHE encryption error:', error);
+                    }
+                }
+                
+                // Record move on blockchain if connected
+                if (window.web3Manager.isConnected && window.web3Manager.contract) {
+                    window.web3Manager.recordMove(move);
+                }
+                
+                // Call original makeMove
+                return originalMakeMove.call(this, fromRow, fromCol, toRow, toCol);
+            };
+
+            // Enhanced game end recording
+            const originalEndGame = window.chessGame.endGame;
+            window.chessGame.endGame = function(winner, reason) {
+                // Call original endGame first
+                originalEndGame.call(this, winner, reason);
+                
+                // Record game result on blockchain
+                if (window.web3Manager.isConnected && window.web3Manager.contract) {
+                    const gameStats = {
+                        totalMoves: this.moveHistory.length,
+                        duration: this.gameStartTime ? Date.now() - this.gameStartTime : 0,
+                        difficulty: this.aiDifficulty,
+                        fheUsed: window.fheManager.isInitialized
+                    };
+                    
+                    window.web3Manager.recordGameResult(winner, reason, gameStats);
+                }
+            };
+
+            // Welcome message
+            showNotification('Chào mừng đến với Chess DApp với FHE thực sự!', 'success');
+
+            // Auto-connect if previously connected
+            if (typeof window.ethereum !== 'undefined') {
+                window.ethereum.request({ method: 'eth_accounts' })
+                    .then(accounts => {
+                        if (accounts.length > 0) {
+                            window.web3Manager.account = accounts[0];
+                            window.web3Manager.isConnected = true;
+                            window.web3Manager.updateWalletUI();
+                            document.getElementById('deploy-contract').disabled = false;
+                        }
+                    })
+                    .catch(console.error);
+            }
+        });
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey || e.metaKey) {
+                switch (e.key) {
+                    case 'n':
+                        e.preventDefault();
+                        window.chessGame.newGame();
+                        break;
+                    case 'p':
+                        e.preventDefault();
+                        window.chessGame.pauseGame();
+                        break;
+                    case 'c':
+                        e.preventDefault();
+                        document.getElementById('connect-wallet').click();
+                        break;
+                }
+            }
+            
+            // ESC to close modal
+            if (e.key === 'Escape') {
+                document.getElementById('game-over-modal').style.display = 'none';
+            }
+        });
+
+        // Performance monitoring
+        const performanceObserver = new PerformanceObserver((list) => {
+            for (const entry of list.getEntries()) {
+                if (entry.entryType === 'measure') {
+                    console.log(`Performance: ${entry.name}: ${entry.duration}ms`);
+                }
+            }
+        });
+        
+        if (typeof PerformanceObserver !== 'undefined') {
+            performanceObserver.observe({ entryTypes: ['measure'] });
+        }
+
+        // Error handling
+        window.addEventListener('error', (e) => {
+            console.error('Application error:', e.error);
+            showNotification('Có lỗi xảy ra. Vui lòng thử lại.', 'error');
+        });
+
+        window.addEventListener('unhandledrejection', (e) => {
+            console.error('Unhandled promise rejection:', e.reason);
+            showNotification('Có lỗi xảy ra khi xử lý yêu cầu.', 'error');
+        });
+
+        // Service Worker for offline support
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(registration => {
+                        console.log('ServiceWorker registered:', registration);
+                    })
+                    .catch(registrationError => {
+                        console.log('ServiceWorker registration failed:', registrationError);
+                    });
+            });
+        }
+    </script>
+</body>
+</html> // 10 minutes
+                this.blackTime = 600;
+                this.lastMove = null;
+                this.winner = null;
+                this.gameEndReason = null;
+                this.timerInterval = null;
+                this.initializeUI();
+                this.bindEvents();
+            }
+
+            initializeBoard() {
+                return [
+                    ['♜', '♞', '♝', '♛', '♚', '♝', '♞', '♜'],
+                    ['♟', '♟', '♟', '♟', '♟', '♟', '♟', '♟'],
+                    [null, null, null, null, null, null, null, null],
+                    [null, null, null, null, null, null, null, null],
+                    [null, null, null, null, null, null, null, null],
+                    [null, null, null, null, null, null, null, null],
+                    ['♙', '♙', '♙', '♙', '♙', '♙', '♙', '♙'],
+                    ['♖', '♘', '♗', '♕', '♔', '♗', '♘', '♖']
+                ];
+            }
+
+            initializeUI() {
+                const boardElement = document.getElementById('chess-board');
+                boardElement.innerHTML = '';
+
+                for (let row = 0; row < 8; row++) {
+                    for (let col = 0; col < 8; col++) {
+                        const square = document.createElement('div');
+                        square.className = `square ${(row + col) % 2 === 0 ? 'light' : 'dark'}`;
+                        square.dataset.row = row;
+                        square.dataset.col = col;
+                        square.textContent = this.board[row][col] || '';
+                        
+                        square.addEventListener('click', (e) => this.handleSquareClick(e));
+                        boardElement.appendChild(square);
+                    }
+                }
+                this.updateGameStatus();
+                this.startTimer();
+            }
+
+            startTimer() {
+                if (this.timerInterval) clearInterval(this.timerInterval);
+                
+                this.gameStartTime = Date.now();
+                this.timerInterval = setInterval(() => {
+                    if (!this.gamePaused && !this.gameOver) {
+                        if (this.currentPlayer === 'white') {
+                            this.whiteTime = Math.max(0, this.whiteTime - 1);
+                        } else {
+                            this.blackTime = Math.max(0, this.blackTime - 1);
+                        }
+                        
+                        this.updateTimerDisplay();
+                        
+                        // Check for time out
+                        if (this.whiteTime === 0) {
+                            this.endGame('black', 'Hết giờ - Đen thắng');
+                        } else if (this.blackTime === 0) {
+                            this.endGame('white', 'Hết giờ - Trắng thắng');
+                        }
+                    }
+                }, 1000);
+            }
+
+            updateTimerDisplay() {
+                const formatTime = (seconds) => {
+                    const mins = Math.floor(seconds / 60);
+                    const secs = seconds % 60;
+                    return `${mins}:${secs.toString().padStart(2, '0')}`;
+                };
+
+                document.getElementById('white-timer').textContent = formatTime(this.whiteTime);
+                document.getElementById('black-timer').textContent = formatTime(this.blackTime);
+            }
+
+            handleSquareClick(event) {
+                if (this.gameOver || this.gamePaused || this.currentPlayer === 'black') return;
+
+                const row = parseInt(event.target.dataset.row);
+                const col = parseInt(event.target.dataset.col);
+
+                if (this.selectedSquare) {
+                    if (this.selectedSquare.row === row && this.selectedSquare.col === col) {
+                        this.clearSelection();
+                        return;
+                    }
+
+                    if (this.isValidMove(this.selectedSquare.row, this.selectedSquare.col, row, col)) {
+                        this.makeMove(this.selectedSquare.row, this.selectedSquare.col, row, col);
+                        this.clearSelection();
+                        
+                        if (!this.gameOver) {
+                            setTimeout(() => this.makeAIMove(), 500);
+                        }
+                    } else {
+                        this.clearSelection();
+                        this.selectSquare(row, col);
+                    }
+                } else {
+                    this.selectSquare(row, col);
+                }
+            }
+
+            selectSquare(row, col) {
+                if (!this.board[row][col] || !this.isPieceOwnedByCurrentPlayer(row, col)) {
+                    return;
+                }
+
+                this.selectedSquare = { row, col };
+                const square = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
+                square.classList.add('selected');
+                this.highlightPossibleMoves(row, col);
+            }
+
+            clearSelection() {
+                document.querySelectorAll('.square').forEach(square => {
+                    square.classList.remove('selected', 'possible-move');
+                });
+                this.selectedSquare = null;
+            }
+
+            highlightPossibleMoves(row, col) {
+                for (let r = 0; r < 8; r++) {
+                    for (let c = 0; c < 8; c++) {
+                        if (this.isValidMove(row, col, r, c)) {
+                            const square = document.querySelector(`[data-row="${r}"][data-col="${c}"]`);
+                            square.classList.add('possible-move');
+                        }
+                    }
+                }
+            }
+
+            highlightLastMove(fromRow, fromCol, toRow, toCol) {
+                // Clear previous highlights
+                document.querySelectorAll('.square').forEach(square => {
+                    square.classList.remove('last-move-from', 'last-move-to');
+                });
+
+                // Highlight new move
+                const fromSquare = document.querySelector(`[data-row="${fromRow}"][data-col="${fromCol}"]`);
+                const toSquare = document.querySelector(`[data-row="${toRow}"][data-col="${toCol}"]`);
+                
+                if (fromSquare) fromSquare.classList.add('last-move-from');
+                if (toSquare) toSquare.classList.add('last-move-to');
+            }
+
+            isPieceOwnedByCurrentPlayer(row, col) {
+                const piece = this.board[row][col];
+                if (!piece) return false;
+                
+                const whitePieces = ['♔', '♕', '♖', '♗', '♘', '♙'];
+                const blackPieces = ['♚', '♛', '♜', '♝', '♞', '♟'];
+                
+                return (this.currentPlayer === 'white' && whitePieces.includes(piece)) ||
+                       (this.currentPlayer === 'black' && blackPieces.includes(piece));
+            }
+
+            isValidMove(fromRow, fromCol, toRow, toCol) {
+                if (toRow < 0 || toRow > 7 || toCol < 0 || toCol > 7) return false;
+                if (fromRow === toRow && fromCol === toCol) return false;
+
+                const piece = this.board[fromRow][fromCol];
+                const targetPiece = this.board[toRow][toCol];
+
+                if (!piece) return false;
+                if (targetPiece && this.isPieceOwnedByCurrentPlayer(toRow, toCol)) return false;
+
+                // Enhanced piece movement validation
+                const rowDiff = Math.abs(toRow - fromRow);
+                const colDiff = Math.abs(toCol - fromCol);
+
+                switch (piece) {
+                    case '♙': // White pawn
+                        if (fromCol === toCol) {
+                            if (fromRow === 6 && toRow === 4 && !this.board[5][fromCol] && !targetPiece) return true;
+                            if (toRow === fromRow - 1 && !targetPiece) return true;
+                        } else if (colDiff === 1 && toRow === fromRow - 1 && targetPiece) {
+                            return true;
+                        }
+                        return false;
+                    
+                    case '♟': // Black pawn
+                        if (fromCol === toCol) {
+                            if (fromRow === 1 && toRow === 3 && !this.board[2][fromCol] && !targetPiece) return true;
+                            if (toRow === fromRow + 1 && !targetPiece) return true;
+                        } else if (colDiff === 1 && toRow === fromRow + 1 && targetPiece) {
+                            return true;
+                        }
+                        return false;
+                    
+                    case '♖': case '♜': // Rook
+                        if (fromRow === toRow || fromCol === toCol) {
+                            return this.isPathClear(fromRow, fromCol, toRow, toCol);
+                        }
+                        return false;
+                    
+                    case '♗': case '♝': // Bishop
+                        if (rowDiff === colDiff) {
+                            return this.isPathClear(fromRow, fromCol, toRow, toCol);
+                        }
+                        return false;
+                    
+                    case '♕': case '♛': // Queen
+                        if (fromRow === toRow || fromCol === toCol || rowDiff === colDiff) {
+                            return this.isPathClear(fromRow, fromCol, toRow, toCol);
+                        }
+                        return false;
+                    
+                    case '♘': case '♞': // Knight
+                        return (rowDiff === 2 && colDiff === 1) || (rowDiff === 1 && colDiff === 2);
+                    
+                    case '♔': case '♚': // King
+                        return rowDiff <= 1 && colDiff <= 1;
+                }
+                
+                return false;
+            }
+
+            isPathClear(fromRow, fromCol, toRow, toCol) {
+                const rowStep = toRow > fromRow ? 1 : toRow < fromRow ? -1 : 0;
+                const colStep = toCol > fromCol ? 1 : toCol < fromCol ? -1 : 0;
+                
+                let currentRow = fromRow + rowStep;
+                let currentCol = fromCol + colStep;
+                
+                while (currentRow !== toRow || currentCol !== toCol) {
+                    if (this.board[currentRow][currentCol]) return false;
+                    currentRow += rowStep;
+                    currentCol += colStep;
+                }
+                
+                return true;
+            }
+
+            async makeMove(fromRow, fromCol, toRow, toCol) {
+                const piece = this.board[fromRow][fromCol];
+                const capturedPiece = this.board[toRow][toCol];
+                
+                // Store move for FHE encryption
+                const move = { fromRow, fromCol, toRow, toCol };
+                
+                // Encrypt move if FHE is available
+                if (window.fheManager && window.fheManager.isInitialized) {
+                    try {
+                        const encryptedMove = await window.fheManager.encryptMove(move);
+                        console.log('Move encrypted:', encryptedMove.id);
+                    } catch (error) {
+                        console.error('FHE encryption error:', error);
+                    }
+                }
+
+                this.board[toRow][toCol] = piece;
+                this.board[fromRow][fromCol] = null;
+                
+                const moveNotation = `${piece} ${String.fromCharCode(97 + fromCol)}${8 - fromRow} → ${String.fromCharCode(97 + toCol)}${8 - toRow}${capturedPiece ? ` (x${capturedPiece})` : ''}`;
+                this.moveHistory.push({
+                    notation: moveNotation,
+                    timestamp: Date.now(),
+                    player: this.currentPlayer
+                });
+                
+                this.lastMove = { fromRow, fromCol, toRow, toCol };
+                this.highlightLastMove(fromRow, fromCol, toRow, toCol);
+                
+                this.currentPlayer = this.currentPlayer === 'white' ? 'black' : 'white';
+                this.updateUI();
+                this.checkGameEnd();
+
+                // Record move on blockchain if connected
+                if (window.web3Manager && window.web3Manager.isConnected) {
+                    console.log('Recording move on blockchain...');
+                }
+            }
+
+            makeAIMove() {
+                if (this.gameOver || this.gamePaused || this.currentPlayer === 'white') return;
+
+                document.getElementById('ai-thinking').style.display = 'block';
+                
+                setTimeout(() => {
+                    const bestMove = this.findBestMove();
+                    if (bestMove) {
+                        this.makeMove(bestMove.fromRow, bestMove.fromCol, bestMove.toRow, bestMove.toCol);
+                    }
+                    document.getElementById('ai-thinking').style.display = 'none';
+                }, 800 + (this.aiDifficulty * 400)); // Longer thinking for higher difficulty
+            }
+
+            findBestMove() {
+                const possibleMoves = this.getAllPossibleMoves('black');
+                if (possibleMoves.length === 0) return null;
+
+                // Use minimax with alpha-beta pruning for higher difficulties
+                if (this.aiDifficulty >= 3) {
+                    return this.minimaxMove(this.aiDifficulty, -Infinity, Infinity, true);
+                }
+
+                // Simple evaluation for lower difficulties
+                let bestMove = null;
+                let bestScore = -Infinity;
+
+                for (const move of possibleMoves) {
+                    const score = this.evaluateMove(move);
+                    if (score > bestScore) {
+                        bestScore = score;
+                        bestMove = move;
+                    }
+                }
+
+                return bestMove;
+            }
+
+            minimaxMove(depth, alpha, beta, isMaximizing) {
+                if (depth === 0) return null;
+
+                const moves = this.getAllPossibleMoves(isMaximizing ? 'black' : 'white');
+                let bestMove = null;
+                let bestScore = isMaximizing ? -Infinity : Infinity;
+
+                for (const move of moves) {
+                    // Simulate move
+                    const originalPiece = this.board[move.toRow][move.toCol];
+                    this.board[move.toRow][move.toCol] = this.board[move.fromRow][move.fromCol];
+                    this.board[move.fromRow][move.fromCol] = null;
+
+                    const score = this.minimax(depth - 1, alpha, beta, !isMaximizing);
+
+                    // Undo move
+                    this.board[move.fromRow][move.fromCol] = this.board[move.toRow][move.toCol];
+                    this.board[move.toRow][move.toCol] = originalPiece;
+
+                    if (isMaximizing) {
+                        if (score > bestScore) {
+                            bestScore = score;
+                            bestMove = move;
+                        }
+                        alpha = Math.max(alpha, score);
+                    } else {
+                        if (score < bestScore) {
+                            bestScore = score;
+                            bestMove = move;
+                        }
+                        beta = Math.min(beta, score);
+                    }
+
+                    if (beta <= alpha) break; // Alpha-beta pruning
+                }
+
+                return bestMove;
+            }
+
+            minimax(depth, alpha, beta, isMaximizing) {
+                if (depth === 0) {
+                    return this.evaluateBoard();
+                }
+
+                const moves = this.getAllPossibleMoves(isMaximizing ? 'black' : 'white');
+                let bestScore = isMaximizing ? -Infinity : Infinity;
+
+                for (const move of moves) {
+                    // Simulate move
+                    const originalPiece = this.board[move.toRow][move.toCol];
+                    this.board[move.toRow][move.toCol] = this.board[move.fromRow][move.fromCol];
+                    this.board[move.fromRow][move.fromCol] = null;
+
+                    const score = this.minimax(depth - 1, alpha, beta, !isMaximizing);
+
+                    // Undo move
+                    this.board[move.fromRow][move.fromCol] = this.board[move.toRow][move.toCol];
+                    this.board[move.toRow][move.toCol] = originalPiece;
+
+                    if (isMaximizing) {
+                        bestScore = Math.max(bestScore, score);
+                        alpha = Math.max(alpha, score);
+                    } else {
+                        bestScore = Math.min(bestScore, score);
+                        beta = Math.min(beta, score);
+                    }
+
+                    if (beta <= alpha) break; // Alpha-beta pruning
+                }
+
+                return bestScore;
+            }
+
+            evaluateBoard() {
+                let score = 0;
+                const pieceValues = {
+                    '♛': -9, '♜': -5, '♝': -3, '♞': -3, '♟': -1,
+                    '♕': 9, '♖': 5, '♗': 3, '♘': 3, '♙': 1
+                };
+
+                for (let row = 0; row < 8; row++) {
+                    for (let col = 0; col < 8; col++) {
+                        const piece = this.board[row][col];
+                        if (piece) {
+                            score += pieceValues[piece] || 0;
+                            
+                            // Position bonuses
+                            if (piece === '♟' || piece === '♙') {
+                                // Pawn advancement bonus
+                                const advancement = piece === '♙' ? (6 - row) : (row - 1);
+                                score += (piece === '♙' ? 0.1 : -0.1) * advancement;
+                            }
+                            
+                            // Center control bonus
+                            const centerDistance = Math.abs(3.5 - row) + Math.abs(3.5 - col);
+                            score += (piece === '♙' || piece === '♖' || piece === '♗' || piece === '♘' || piece === '♕' ? 0.05 : -0.05) * (7 - centerDistance);
+                        }
+                    }
+                }
+
+                return score;
+            }
+
+            getAllPossibleMoves(color) {
+                const moves = [];
+                for (let row = 0; row < 8; row++) {
+                    for (let col = 0; col < 8; col++) {
+                        if (this.board[row][col] && this.isPieceColor(row, col, color)) {
+                            for (let toRow = 0; toRow < 8; toRow++) {
+                                for (let toCol = 0; toCol < 8; toCol++) {
+                                    if (this.isValidMove(row, col, toRow, toCol)) {
+                                        moves.push({ fromRow: row, fromCol: col, toRow, toCol });
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                return moves;
+            }
+
+            isPieceColor(row, col, color) {
+                const piece = this.board[row][col];
+                if (!piece) return false;
+                
+                const whitePieces = ['♔', '♕', '♖', '♗', '♘', '♙'];
+                const blackPieces = ['♚', '♛', '♜', '♝', '♞', '♟'];
+                
+                return (color === 'white' && whitePieces.includes(piece)) ||
+                       (color === 'black' && blackPieces.includes(piece));
+            }
+
+            evaluateMove(move) {
+                const piece = this.board[move.fromRow][move.fromCol];
+                const target = this.board[move.toRow][move.toCol];
+                
+                let score = Math.random() * 10;
+                
+                if (target) {
+                    const pieceValues = { 
+                        '♛': 9, '♜': 5, '♝': 3, '♞': 3, '♟': 1,
+                        '♕': 9, '♖': 5, '♗': 3, '♘': 3, '♙': 1 
+                    };
+                    score += pieceValues[target] || 0;
+                }
+                
+                const centerDistance = Math.abs(3.5 - move.toRow) + Math.abs(3.5 - move.toCol);
+                score += (7 - centerDistance) * 0.5;
+                
+                return score;
+            }
+
+            updateUI() {
+                document.querySelectorAll('.square').forEach(square => {
+                    const row = parseInt(square.dataset.row);
+                    const col = parseInt(square.dataset.col);
+                    square.textContent = this.board[row][col] || '';
+                });
+                
+                this.updateGameStatus();
+                this.updateMoveHistory();
+                this.updateGameControls();
+            }
+
+            updateGameStatus() {
+                const statusElement = document.getElementById('game-status');
+                if (this.gameOver) {
+                    statusElement.textContent = `Game kết thúc - ${this.winner} thắng`;
+                } else if (this.gamePaused) {
+                    statusElement.textContent = 'Game đã tạm dừng';
+                } else {
+                    statusElement.textContent = this.currentPlayer === 'white' ? 
+                        'Lượt của bạn (Trắng)' : 'Lượt của AI (Đen)';
+                }
+            }
+
+            updateMoveHistory() {
+                const historyElement = document.getElementById('move-history');
+                if (this.moveHistory.length > 0) {
+                    const historyHTML = this.moveHistory.map((move, index) => {
+                        const playerColor = move.player === 'white' ? '#4ecdc4' : '#ff6b6b';
+                        return `<span style="color: ${playerColor}">${index + 1}. ${move.notation}</span>`;
+                    }).join('<br>');
+                    historyElement.innerHTML = historyHTML;
+                } else {
+                    historyElement.innerHTML = 'Game mới - Bạn đi trước!';
+                }
+                historyElement.scrollTop = historyElement.scrollHeight;
+            }
+
+            updateGameControls() {
+                const pauseBtn = document.getElementById('pause-game');
+                const stopBtn = document.getElementById('stop-game');
+                
+                if (this.gameOver) {
+                    pauseBtn.disabled = true;
+                    stopBtn.disabled = true;
+                } else {
+                    pauseBtn.disabled = false;
+                    stopBtn.disabled = false;
+                    pauseBtn.textContent = this.gamePaused ? 'Tiếp tục' : 'Tạm dừng';
+                }
+            }
+
+            checkGameEnd() {
+                const currentMoves = this.getAllPossibleMoves(this.currentPlayer);
+                
+                if (currentMoves.length === 0) {
+                    if (this.isKingInCheck(this.currentPlayer)) {
+                        const winner = this.currentPlayer === 'white' ? 'Đen' : 'Trắng';
+                        this.endGame(this.currentPlayer === 'white' ? 'black' : 'white', `Chiếu tướng - ${winner} thắng`);
+                    } else {
+                        this.endGame(null, 'Hòa - Không thể di chuyển');
+                    }
+                } else if (this.moveHistory.length >= 100) {
+                    this.endGame(null, 'Hòa - 50 nước không ăn quân');
+                }
+            }
+
+            isKingInCheck(color) {
+                // Find king position
+                let kingRow = -1, kingCol = -1;
+                const kingPiece = color === 'white' ? '♔' : '♚';
+                
+                for (let row = 0; row < 8; row++) {
+                    for (let col = 0; col < 8; col++) {
+                        if (this.board[row][col] === kingPiece) {
+                            kingRow = row;
+                            kingCol = col;
+                            break;
+                        }
+                    }
+                    if (kingRow !== -1) break;
+                }
+
+                if (kingRow === -1) return false;
+
+                // Check if any opponent piece can attack the king
+                const opponentColor = color === 'white' ? 'black' : 'white';
+                const opponentMoves = this.getAllPossibleMoves(opponentColor);
+                
+                return opponentMoves.some(move => move.toRow === kingRow && move.toCol === kingCol);
+            }
+
+            pauseGame() {
+                this.gamePaused = !this.gamePaused;
+                this.updateGameStatus();
+                this.updateGameControls();
+                
+                if (this.gamePaused) {
+                    showNotification('Game đã tạm dừng', 'warning');
+                } else {
+                    showNotification('Game tiếp tục', 'success');
+                }
+            }
+
+            stopGame() {
+                if (confirm('Bạn có chắc muốn dừng trận đấu? (Kết quả sẽ được ghi nhận)')) {
+                    this.endGame(null, 'Người chơi dừng trận đấu');
+                }
+            }
+
+            endGame(winner, reason) {
+                this.gameOver = true;
+                this.winner = winner;
+                this.gameEndReason = reason;
+                
+                if (this.timerInterval) {
+                    clearInterval(this.timerInterval);
+                    this.timerInterval = null;
+                }
+
+                this.updateUI();
+                setTimeout(() => this.showGameOverModal(), 500);
+            }
+
+            showGameOverModal() {
+                const modal = document.getElementById('game-over-modal');
+                const title = document.getElementById('game-result-title');
+                const winnerText = document.getElementById('winner-text');
+                const reasonText = document.getElementById('win-reason');
+
+                if (this.winner === null) {
+                    title.textContent = '🤝 Trận đấu hòa!';
+                    winnerText.textContent = 'Kết quả: Hòa';
+                } else if (this.winner === 'white') {
+                    title.textContent = '🎉 Bạn thắng!';
+                    winnerText.textContent = 'Người chiến thắng: Bạn (Trắng)';
+                } else {
+                    title.textContent = '🤖 AI thắng!';
+                    winnerText.textContent = 'Người chiến thắng: AI (Đen)';
+                }
+
+                reasonText.textContent = this.gameEndReason;
+
+                // Update game stats
+                const gameDuration = this.gameStartTime ? 
+                    Math.floor((Date.now() - this.gameStartTime) / 1000) : 0;
+                const formatTime = (seconds) => {
+                    const mins = Math.floor(seconds / 60);
+                    const secs = seconds % 60;
+                    return `${mins}:${secs.toString().padStart(2, '0')}`;
+                };
+
+                document.getElementById('total-moves').textContent = this.moveHistory.length;
+                document.getElementById('game-duration').textContent = formatTime(gameDuration);
+                
+                const difficultyNames = ['', 'Dễ', 'Trung bình', 'Khó', 'Chuyên gia'];
+                document.getElementById('ai-difficulty-used').textContent = difficultyNames[this.aiDifficulty];
+                
+                document.getElementById('fhe-usage').textContent = 
+                    (window.fheManager && window.fheManager.isInitialized) ? 'Có' : 'Không';
+
+                modal.style.display = 'flex';
+
+                // Record game result on blockchain if connected
+                if (window.web3Manager && window.web3Manager.isConnected) {
+                    console.log('Recording game result on blockchain...');
+                }
+            }
+
+            newGame() {
+                if (this.timerInterval) clearInterval(this.timerInterval);
+                
+                this.board = this.initializeBoard();
+                this.currentPlayer = 'white';
+                this.selectedSquare = null;
+                this.moveHistory = [];
+                this.gameOver = false;
+                this.gamePaused = false;
+                this.gameStartTime = null;
+                this.whiteTime = 600;

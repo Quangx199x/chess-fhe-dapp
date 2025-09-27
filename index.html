@@ -613,6 +613,21 @@
     <!-- Load TFHE.js library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
     <script>
+        // Global variables
+        let fheManager, web3Manager, chessGame;
+
+        // Utility Functions
+        function showNotification(message, type = 'success') {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = `notification ${type}`;
+            notification.style.display = 'block';
+            
+            setTimeout(() => {
+                notification.style.display = 'none';
+            }, 5000);
+        }
+
         // Real FHE Implementation using TFHE.js simulation
         class RealFHEManager {
             constructor() {
@@ -656,7 +671,6 @@
             }
 
             async generateKeys() {
-                // Simulate key generation using crypto-js
                 const entropy = CryptoJS.lib.WordArray.random(256/8);
                 this.secretKey = {
                     key: CryptoJS.SHA256(entropy + 'secret').toString(),
@@ -675,7 +689,6 @@
             }
 
             async setupContext() {
-                // Simulate TFHE context setup
                 this.context = {
                     scheme: 'TFHE',
                     securityLevel: 128,
@@ -692,10 +705,8 @@
                 const moveId = `move_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
                 
                 try {
-                    // Simulate real TFHE encryption
                     const startTime = Date.now();
                     
-                    // Encrypt each coordinate separately
                     const encryptedMove = {
                         id: moveId,
                         fromRow: await this.encryptInteger(move.fromRow),
@@ -720,7 +731,6 @@
             }
 
             async encryptInteger(value) {
-                // Simulate TFHE integer encryption
                 await this.simulateDelay(50 + Math.random() * 100);
                 
                 const noise = Math.random() * 0.1;
@@ -773,44 +783,6 @@
                 }
             }
 
-            async validateMoveEncrypted(encryptedMove) {
-                if (!this.isInitialized) return false;
-
-                try {
-                    // Simulate homomorphic validation
-                    await this.simulateDelay(200 + Math.random() * 300);
-                    
-                    // Check bounds homomorphically (simulation)
-                    const validBounds = await this.checkBoundsEncrypted(encryptedMove);
-                    const validPiece = await this.checkPieceEncrypted(encryptedMove);
-                    
-                    // Combine results with homomorphic AND
-                    const isValid = await this.homomorphicAND(validBounds, validPiece);
-                    
-                    return isValid;
-                } catch (error) {
-                    console.error('Encrypted validation error:', error);
-                    return false;
-                }
-            }
-
-            async checkBoundsEncrypted(encryptedMove) {
-                // Simulate homomorphic bounds checking
-                await this.simulateDelay(100);
-                return Math.random() > 0.1; // 90% success rate
-            }
-
-            async checkPieceEncrypted(encryptedMove) {
-                // Simulate homomorphic piece validation
-                await this.simulateDelay(150);
-                return Math.random() > 0.05; // 95% success rate
-            }
-
-            async homomorphicAND(a, b) {
-                await this.simulateDelay(50);
-                return a && b;
-            }
-
             async testEncryption() {
                 if (!this.isInitialized) {
                     showNotification('FHE chưa được khởi tạo!', 'error');
@@ -822,18 +794,15 @@
                 document.getElementById('fhe-test-results').style.display = 'block';
 
                 try {
-                    // Test 1: Encrypt a simple move
                     testResults.innerHTML += '1. Test mã hóa nước đi...\n';
                     const testMove = { fromRow: 6, fromCol: 4, toRow: 4, toCol: 4 };
                     const encrypted = await this.encryptMove(testMove);
                     testResults.innerHTML += `   ✓ Mã hóa thành công (${encrypted.encryptionTime}ms)\n`;
 
-                    // Test 2: Decrypt the move
                     testResults.innerHTML += '2. Test giải mã...\n';
                     const decrypted = await this.decryptMove(encrypted);
                     testResults.innerHTML += `   ✓ Giải mã thành công (${decrypted.decryptionTime}ms)\n`;
 
-                    // Test 3: Verify accuracy
                     testResults.innerHTML += '3. Kiểm tra tính chính xác...\n';
                     const isAccurate = (
                         decrypted.fromRow === testMove.fromRow &&
@@ -842,11 +811,6 @@
                         decrypted.toCol === testMove.toCol
                     );
                     testResults.innerHTML += `   ${isAccurate ? '✓' : '✗'} ${isAccurate ? 'Chính xác' : 'Lỗi dữ liệu'}\n`;
-
-                    // Test 4: Homomorphic validation
-                    testResults.innerHTML += '4. Test validation đồng hình...\n';
-                    const validationResult = await this.validateMoveEncrypted(encrypted);
-                    testResults.innerHTML += `   ${validationResult ? '✓' : '✗'} Validation ${validationResult ? 'thành công' : 'thất bại'}\n`;
 
                     testResults.innerHTML += '\n=== Test hoàn tất ===\n';
                     showNotification('FHE test hoàn tất!', 'success');
@@ -898,10 +862,108 @@
                 this.lastMove = null;
                 this.winner = null;
                 this.gameEndReason = null;
+                this.timerInterval = null;
+                this.initializeUI();
+                this.bindEvents();
+            }
+
+            initializeBoard() {
+                return [
+                    ['♜', '♞', '♝', '♛', '♚', '♝', '♞', '♜'],
+                    ['♟', '♟', '♟', '♟', '♟', '♟', '♟', '♟'],
+                    [null, null, null, null, null, null, null, null],
+                    [null, null, null, null, null, null, null, null],
+                    [null, null, null, null, null, null, null, null],
+                    [null, null, null, null, null, null, null, null],
+                    ['♙', '♙', '♙', '♙', '♙', '♙', '♙', '♙'],
+                    ['♖', '♘', '♗', '♕', '♔', '♗', '♘', '♖']
+                ];
+            }
+
+            initializeUI() {
+                const boardElement = document.getElementById('chess-board');
+                boardElement.innerHTML = '';
+
+                for (let row = 0; row < 8; row++) {
+                    for (let col = 0; col < 8; col++) {
+                        const square = document.createElement('div');
+                        square.className = `square ${(row + col) % 2 === 0 ? 'light' : 'dark'}`;
+                        square.dataset.row = row;
+                        square.dataset.col = col;
+                        square.textContent = this.board[row][col] || '';
+                        
+                        square.addEventListener('click', (e) => this.handleSquareClick(e));
+                        boardElement.appendChild(square);
+                    }
+                }
+                this.updateGameStatus();
+                this.startTimer();
+            }
+
+            startTimer() {
+                if (this.timerInterval) clearInterval(this.timerInterval);
+                
+                this.gameStartTime = Date.now();
+                this.timerInterval = setInterval(() => {
+                    if (!this.gamePaused && !this.gameOver) {
+                        if (this.currentPlayer === 'white') {
+                            this.whiteTime = Math.max(0, this.whiteTime - 1);
+                        } else {
+                            this.blackTime = Math.max(0, this.blackTime - 1);
+                        }
+                        
+                        this.updateTimerDisplay();
+                        
+                        if (this.whiteTime === 0) {
+                            this.endGame('black', 'Hết giờ - Đen thắng');
+                        } else if (this.blackTime === 0) {
+                            this.endGame('white', 'Hết giờ - Trắng thắng');
+                        }
+                    }
+                }, 1000);
+            }
+
+            updateTimerDisplay() {
+                const formatTime = (seconds) => {
+                    const mins = Math.floor(seconds / 60);
+                    const secs = seconds % 60;
+                    return `${mins}:${secs.toString().padStart(2, '0')}`;
+                };
+
+                document.getElementById('total-moves').textContent = this.moveHistory.length;
+                document.getElementById('game-duration').textContent = formatTime(gameDuration);
+                
+                const difficultyNames = ['', 'Dễ', 'Trung bình', 'Khó', 'Chuyên gia'];
+                document.getElementById('ai-difficulty-used').textContent = difficultyNames[this.aiDifficulty];
+                
+                document.getElementById('fhe-usage').textContent = 
+                    (fheManager && fheManager.isInitialized) ? 'Có' : 'Không';
+
+                modal.style.display = 'flex';
+
+                if (web3Manager && web3Manager.isConnected) {
+                    console.log('Recording game result on blockchain...');
+                }
+            }
+
+            newGame() {
+                if (this.timerInterval) clearInterval(this.timerInterval);
+                
+                this.board = this.initializeBoard();
+                this.currentPlayer = 'white';
+                this.selectedSquare = null;
+                this.moveHistory = [];
+                this.gameOver = false;
+                this.gamePaused = false;
+                this.gameStartTime = null;
+                this.whiteTime = 600;
+                this.blackTime = 600;
+                this.lastMove = null;
+                this.winner = null;
+                this.gameEndReason = null;
                 
                 this.initializeUI();
                 
-                // Close modal if open
                 document.getElementById('game-over-modal').style.display = 'none';
             }
 
@@ -912,7 +974,6 @@
             }
 
             bindEvents() {
-                // Difficulty buttons
                 document.querySelectorAll('.difficulty-btn').forEach(btn => {
                     btn.addEventListener('click', (e) => {
                         document.querySelectorAll('.difficulty-btn').forEach(b => b.classList.remove('active'));
@@ -921,7 +982,6 @@
                     });
                 });
 
-                // Game control buttons
                 document.getElementById('new-game').addEventListener('click', () => {
                     this.newGame();
                     showNotification('Game mới đã bắt đầu!', 'success');
@@ -935,7 +995,6 @@
                     this.stopGame();
                 });
 
-                // Modal buttons
                 document.getElementById('play-again').addEventListener('click', () => {
                     this.newGame();
                     showNotification('Game mới đã bắt đầu!', 'success');
@@ -1005,7 +1064,7 @@
                 try {
                     await window.ethereum.request({
                         method: 'wallet_switchEthereumChain',
-                        params: [{ chainId: '0xaa36a7' }] // Sepolia testnet
+                        params: [{ chainId: '0xaa36a7' }]
                     });
                 } catch (switchError) {
                     if (switchError.code === 4902) {
@@ -1070,39 +1129,10 @@
                 try {
                     showNotification('Đang deploy smart contract...', 'success');
                     
-                    // Chess Game Smart Contract ABI (simplified)
-                    const contractABI = [
-                        {
-                            "inputs": [],
-                            "name": "createGame",
-                            "outputs": [{"type": "uint256"}],
-                            "stateMutability": "nonpayable",
-                            "type": "function"
-                        },
-                        {
-                            "inputs": [{"type": "uint256"}, {"type": "string"}],
-                            "name": "makeMove",
-                            "outputs": [],
-                            "stateMutability": "nonpayable",
-                            "type": "function"
-                        },
-                        {
-                            "inputs": [{"type": "uint256"}, {"type": "address"}],
-                            "name": "endGame",
-                            "outputs": [],
-                            "stateMutability": "nonpayable",
-                            "type": "function"
-                        }
-                    ];
-
-                    // Simple contract bytecode (placeholder)
-                    const contractBytecode = "0x608060405234801561001057600080fd5b50..."; // Simplified
-
-                    // Simulate deployment
                     await new Promise(resolve => setTimeout(resolve, 3000));
                     
                     this.contractAddress = '0x' + Math.random().toString(16).substr(2, 40);
-                    this.contract = { abi: contractABI, address: this.contractAddress };
+                    this.contract = { address: this.contractAddress };
                     
                     this.updateWalletUI();
                     showNotification(`Contract deployed! Address: ${this.contractAddress.substring(0, 10)}...`, 'success');
@@ -1121,7 +1151,6 @@
                     const moveData = JSON.stringify(move);
                     console.log(`Recording move on blockchain: Game ${gameId}, Move: ${moveData}`);
                     
-                    // Simulate transaction
                     await new Promise(resolve => setTimeout(resolve, 1000));
                     
                     showNotification('Nước đi đã được ghi trên blockchain', 'success');
@@ -1136,7 +1165,6 @@
                 try {
                     console.log(`Recording game result: Winner: ${winner}, Reason: ${reason}`);
                     
-                    // Simulate transaction
                     await new Promise(resolve => setTimeout(resolve, 1500));
                     
                     showNotification('Kết quả trận đấu đã được ghi trên blockchain', 'success');
@@ -1160,92 +1188,33 @@
             }
         }
 
-        // Utility Functions
-        function showNotification(message, type = 'success') {
-            const notification = document.getElementById('notification');
-            notification.textContent = message;
-            notification.className = `notification ${type}`;
-            notification.style.display = 'block';
-            
-            setTimeout(() => {
-                notification.style.display = 'none';
-            }, 5000);
-        }
-
         // Initialize Application
         document.addEventListener('DOMContentLoaded', () => {
-            // Initialize managers
-            window.fheManager = new RealFHEManager();
-            window.web3Manager = new Web3Manager();
-            window.chessGame = new ChessGame();
+            fheManager = new RealFHEManager();
+            web3Manager = new Web3Manager();
+            chessGame = new ChessGame();
 
-            // FHE Event Handlers
             document.getElementById('init-fhe').addEventListener('click', async () => {
                 document.getElementById('init-fhe').disabled = true;
-                const success = await window.fheManager.initialize();
+                const success = await fheManager.initialize();
                 if (!success) {
                     document.getElementById('init-fhe').disabled = false;
                 }
             });
 
             document.getElementById('test-fhe').addEventListener('click', () => {
-                window.fheManager.testEncryption();
+                fheManager.testEncryption();
             });
 
-            // Enhanced game integration with FHE and Web3
-            const originalMakeMove = window.chessGame.makeMove;
-            window.chessGame.makeMove = async function(fromRow, fromCol, toRow, toCol) {
-                const move = { fromRow, fromCol, toRow, toCol, timestamp: Date.now() };
-                
-                // Encrypt move with FHE if available
-                if (window.fheManager.isInitialized) {
-                    try {
-                        const encryptedMove = await window.fheManager.encryptMove(move);
-                        console.log('Move encrypted with FHE:', encryptedMove.id);
-                    } catch (error) {
-                        console.error('FHE encryption error:', error);
-                    }
-                }
-                
-                // Record move on blockchain if connected
-                if (window.web3Manager.isConnected && window.web3Manager.contract) {
-                    window.web3Manager.recordMove(move);
-                }
-                
-                // Call original makeMove
-                return originalMakeMove.call(this, fromRow, fromCol, toRow, toCol);
-            };
-
-            // Enhanced game end recording
-            const originalEndGame = window.chessGame.endGame;
-            window.chessGame.endGame = function(winner, reason) {
-                // Call original endGame first
-                originalEndGame.call(this, winner, reason);
-                
-                // Record game result on blockchain
-                if (window.web3Manager.isConnected && window.web3Manager.contract) {
-                    const gameStats = {
-                        totalMoves: this.moveHistory.length,
-                        duration: this.gameStartTime ? Date.now() - this.gameStartTime : 0,
-                        difficulty: this.aiDifficulty,
-                        fheUsed: window.fheManager.isInitialized
-                    };
-                    
-                    window.web3Manager.recordGameResult(winner, reason, gameStats);
-                }
-            };
-
-            // Welcome message
             showNotification('Chào mừng đến với Chess DApp với FHE thực sự!', 'success');
 
-            // Auto-connect if previously connected
             if (typeof window.ethereum !== 'undefined') {
                 window.ethereum.request({ method: 'eth_accounts' })
                     .then(accounts => {
                         if (accounts.length > 0) {
-                            window.web3Manager.account = accounts[0];
-                            window.web3Manager.isConnected = true;
-                            window.web3Manager.updateWalletUI();
+                            web3Manager.account = accounts[0];
+                            web3Manager.isConnected = true;
+                            web3Manager.updateWalletUI();
                             document.getElementById('deploy-contract').disabled = false;
                         }
                     })
@@ -1259,11 +1228,11 @@
                 switch (e.key) {
                     case 'n':
                         e.preventDefault();
-                        window.chessGame.newGame();
+                        chessGame.newGame();
                         break;
                     case 'p':
                         e.preventDefault();
-                        window.chessGame.pauseGame();
+                        chessGame.pauseGame();
                         break;
                     case 'c':
                         e.preventDefault();
@@ -1272,24 +1241,10 @@
                 }
             }
             
-            // ESC to close modal
             if (e.key === 'Escape') {
                 document.getElementById('game-over-modal').style.display = 'none';
             }
         });
-
-        // Performance monitoring
-        const performanceObserver = new PerformanceObserver((list) => {
-            for (const entry of list.getEntries()) {
-                if (entry.entryType === 'measure') {
-                    console.log(`Performance: ${entry.name}: ${entry.duration}ms`);
-                }
-            }
-        });
-        
-        if (typeof PerformanceObserver !== 'undefined') {
-            performanceObserver.observe({ entryTypes: ['measure'] });
-        }
 
         // Error handling
         window.addEventListener('error', (e) => {
@@ -1301,93 +1256,9 @@
             console.error('Unhandled promise rejection:', e.reason);
             showNotification('Có lỗi xảy ra khi xử lý yêu cầu.', 'error');
         });
-
-        // Service Worker for offline support
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js')
-                    .then(registration => {
-                        console.log('ServiceWorker registered:', registration);
-                    })
-                    .catch(registrationError => {
-                        console.log('ServiceWorker registration failed:', registrationError);
-                    });
-            });
-        }
     </script>
 </body>
-</html> // 10 minutes
-                this.blackTime = 600;
-                this.lastMove = null;
-                this.winner = null;
-                this.gameEndReason = null;
-                this.timerInterval = null;
-                this.initializeUI();
-                this.bindEvents();
-            }
-
-            initializeBoard() {
-                return [
-                    ['♜', '♞', '♝', '♛', '♚', '♝', '♞', '♜'],
-                    ['♟', '♟', '♟', '♟', '♟', '♟', '♟', '♟'],
-                    [null, null, null, null, null, null, null, null],
-                    [null, null, null, null, null, null, null, null],
-                    [null, null, null, null, null, null, null, null],
-                    [null, null, null, null, null, null, null, null],
-                    ['♙', '♙', '♙', '♙', '♙', '♙', '♙', '♙'],
-                    ['♖', '♘', '♗', '♕', '♔', '♗', '♘', '♖']
-                ];
-            }
-
-            initializeUI() {
-                const boardElement = document.getElementById('chess-board');
-                boardElement.innerHTML = '';
-
-                for (let row = 0; row < 8; row++) {
-                    for (let col = 0; col < 8; col++) {
-                        const square = document.createElement('div');
-                        square.className = `square ${(row + col) % 2 === 0 ? 'light' : 'dark'}`;
-                        square.dataset.row = row;
-                        square.dataset.col = col;
-                        square.textContent = this.board[row][col] || '';
-                        
-                        square.addEventListener('click', (e) => this.handleSquareClick(e));
-                        boardElement.appendChild(square);
-                    }
-                }
-                this.updateGameStatus();
-                this.startTimer();
-            }
-
-            startTimer() {
-                if (this.timerInterval) clearInterval(this.timerInterval);
-                
-                this.gameStartTime = Date.now();
-                this.timerInterval = setInterval(() => {
-                    if (!this.gamePaused && !this.gameOver) {
-                        if (this.currentPlayer === 'white') {
-                            this.whiteTime = Math.max(0, this.whiteTime - 1);
-                        } else {
-                            this.blackTime = Math.max(0, this.blackTime - 1);
-                        }
-                        
-                        this.updateTimerDisplay();
-                        
-                        // Check for time out
-                        if (this.whiteTime === 0) {
-                            this.endGame('black', 'Hết giờ - Đen thắng');
-                        } else if (this.blackTime === 0) {
-                            this.endGame('white', 'Hết giờ - Trắng thắng');
-                        }
-                    }
-                }, 1000);
-            }
-
-            updateTimerDisplay() {
-                const formatTime = (seconds) => {
-                    const mins = Math.floor(seconds / 60);
-                    const secs = seconds % 60;
-                    return `${mins}:${secs.toString().padStart(2, '0')}`;
+</html>.toString().padStart(2, '0')}`;
                 };
 
                 document.getElementById('white-timer').textContent = formatTime(this.whiteTime);
@@ -1452,12 +1323,10 @@
             }
 
             highlightLastMove(fromRow, fromCol, toRow, toCol) {
-                // Clear previous highlights
                 document.querySelectorAll('.square').forEach(square => {
                     square.classList.remove('last-move-from', 'last-move-to');
                 });
 
-                // Highlight new move
                 const fromSquare = document.querySelector(`[data-row="${fromRow}"][data-col="${fromCol}"]`);
                 const toSquare = document.querySelector(`[data-row="${toRow}"][data-col="${toCol}"]`);
                 
@@ -1486,12 +1355,11 @@
                 if (!piece) return false;
                 if (targetPiece && this.isPieceOwnedByCurrentPlayer(toRow, toCol)) return false;
 
-                // Enhanced piece movement validation
                 const rowDiff = Math.abs(toRow - fromRow);
                 const colDiff = Math.abs(toCol - fromCol);
 
                 switch (piece) {
-                    case '♙': // White pawn
+                    case '♙':
                         if (fromCol === toCol) {
                             if (fromRow === 6 && toRow === 4 && !this.board[5][fromCol] && !targetPiece) return true;
                             if (toRow === fromRow - 1 && !targetPiece) return true;
@@ -1500,7 +1368,7 @@
                         }
                         return false;
                     
-                    case '♟': // Black pawn
+                    case '♟':
                         if (fromCol === toCol) {
                             if (fromRow === 1 && toRow === 3 && !this.board[2][fromCol] && !targetPiece) return true;
                             if (toRow === fromRow + 1 && !targetPiece) return true;
@@ -1509,28 +1377,28 @@
                         }
                         return false;
                     
-                    case '♖': case '♜': // Rook
+                    case '♖': case '♜':
                         if (fromRow === toRow || fromCol === toCol) {
                             return this.isPathClear(fromRow, fromCol, toRow, toCol);
                         }
                         return false;
                     
-                    case '♗': case '♝': // Bishop
+                    case '♗': case '♝':
                         if (rowDiff === colDiff) {
                             return this.isPathClear(fromRow, fromCol, toRow, toCol);
                         }
                         return false;
                     
-                    case '♕': case '♛': // Queen
+                    case '♕': case '♛':
                         if (fromRow === toRow || fromCol === toCol || rowDiff === colDiff) {
                             return this.isPathClear(fromRow, fromCol, toRow, toCol);
                         }
                         return false;
                     
-                    case '♘': case '♞': // Knight
+                    case '♘': case '♞':
                         return (rowDiff === 2 && colDiff === 1) || (rowDiff === 1 && colDiff === 2);
                     
-                    case '♔': case '♚': // King
+                    case '♔': case '♚':
                         return rowDiff <= 1 && colDiff <= 1;
                 }
                 
@@ -1557,13 +1425,11 @@
                 const piece = this.board[fromRow][fromCol];
                 const capturedPiece = this.board[toRow][toCol];
                 
-                // Store move for FHE encryption
                 const move = { fromRow, fromCol, toRow, toCol };
                 
-                // Encrypt move if FHE is available
-                if (window.fheManager && window.fheManager.isInitialized) {
+                if (fheManager && fheManager.isInitialized) {
                     try {
-                        const encryptedMove = await window.fheManager.encryptMove(move);
+                        const encryptedMove = await fheManager.encryptMove(move);
                         console.log('Move encrypted:', encryptedMove.id);
                     } catch (error) {
                         console.error('FHE encryption error:', error);
@@ -1587,8 +1453,7 @@
                 this.updateUI();
                 this.checkGameEnd();
 
-                // Record move on blockchain if connected
-                if (window.web3Manager && window.web3Manager.isConnected) {
+                if (web3Manager && web3Manager.isConnected) {
                     console.log('Recording move on blockchain...');
                 }
             }
@@ -1604,19 +1469,13 @@
                         this.makeMove(bestMove.fromRow, bestMove.fromCol, bestMove.toRow, bestMove.toCol);
                     }
                     document.getElementById('ai-thinking').style.display = 'none';
-                }, 800 + (this.aiDifficulty * 400)); // Longer thinking for higher difficulty
+                }, 800 + (this.aiDifficulty * 400));
             }
 
             findBestMove() {
                 const possibleMoves = this.getAllPossibleMoves('black');
                 if (possibleMoves.length === 0) return null;
 
-                // Use minimax with alpha-beta pruning for higher difficulties
-                if (this.aiDifficulty >= 3) {
-                    return this.minimaxMove(this.aiDifficulty, -Infinity, Infinity, true);
-                }
-
-                // Simple evaluation for lower difficulties
                 let bestMove = null;
                 let bestScore = -Infinity;
 
@@ -1629,109 +1488,6 @@
                 }
 
                 return bestMove;
-            }
-
-            minimaxMove(depth, alpha, beta, isMaximizing) {
-                if (depth === 0) return null;
-
-                const moves = this.getAllPossibleMoves(isMaximizing ? 'black' : 'white');
-                let bestMove = null;
-                let bestScore = isMaximizing ? -Infinity : Infinity;
-
-                for (const move of moves) {
-                    // Simulate move
-                    const originalPiece = this.board[move.toRow][move.toCol];
-                    this.board[move.toRow][move.toCol] = this.board[move.fromRow][move.fromCol];
-                    this.board[move.fromRow][move.fromCol] = null;
-
-                    const score = this.minimax(depth - 1, alpha, beta, !isMaximizing);
-
-                    // Undo move
-                    this.board[move.fromRow][move.fromCol] = this.board[move.toRow][move.toCol];
-                    this.board[move.toRow][move.toCol] = originalPiece;
-
-                    if (isMaximizing) {
-                        if (score > bestScore) {
-                            bestScore = score;
-                            bestMove = move;
-                        }
-                        alpha = Math.max(alpha, score);
-                    } else {
-                        if (score < bestScore) {
-                            bestScore = score;
-                            bestMove = move;
-                        }
-                        beta = Math.min(beta, score);
-                    }
-
-                    if (beta <= alpha) break; // Alpha-beta pruning
-                }
-
-                return bestMove;
-            }
-
-            minimax(depth, alpha, beta, isMaximizing) {
-                if (depth === 0) {
-                    return this.evaluateBoard();
-                }
-
-                const moves = this.getAllPossibleMoves(isMaximizing ? 'black' : 'white');
-                let bestScore = isMaximizing ? -Infinity : Infinity;
-
-                for (const move of moves) {
-                    // Simulate move
-                    const originalPiece = this.board[move.toRow][move.toCol];
-                    this.board[move.toRow][move.toCol] = this.board[move.fromRow][move.fromCol];
-                    this.board[move.fromRow][move.fromCol] = null;
-
-                    const score = this.minimax(depth - 1, alpha, beta, !isMaximizing);
-
-                    // Undo move
-                    this.board[move.fromRow][move.fromCol] = this.board[move.toRow][move.toCol];
-                    this.board[move.toRow][move.toCol] = originalPiece;
-
-                    if (isMaximizing) {
-                        bestScore = Math.max(bestScore, score);
-                        alpha = Math.max(alpha, score);
-                    } else {
-                        bestScore = Math.min(bestScore, score);
-                        beta = Math.min(beta, score);
-                    }
-
-                    if (beta <= alpha) break; // Alpha-beta pruning
-                }
-
-                return bestScore;
-            }
-
-            evaluateBoard() {
-                let score = 0;
-                const pieceValues = {
-                    '♛': -9, '♜': -5, '♝': -3, '♞': -3, '♟': -1,
-                    '♕': 9, '♖': 5, '♗': 3, '♘': 3, '♙': 1
-                };
-
-                for (let row = 0; row < 8; row++) {
-                    for (let col = 0; col < 8; col++) {
-                        const piece = this.board[row][col];
-                        if (piece) {
-                            score += pieceValues[piece] || 0;
-                            
-                            // Position bonuses
-                            if (piece === '♟' || piece === '♙') {
-                                // Pawn advancement bonus
-                                const advancement = piece === '♙' ? (6 - row) : (row - 1);
-                                score += (piece === '♙' ? 0.1 : -0.1) * advancement;
-                            }
-                            
-                            // Center control bonus
-                            const centerDistance = Math.abs(3.5 - row) + Math.abs(3.5 - col);
-                            score += (piece === '♙' || piece === '♖' || piece === '♗' || piece === '♘' || piece === '♕' ? 0.05 : -0.05) * (7 - centerDistance);
-                        }
-                    }
-                }
-
-                return score;
             }
 
             getAllPossibleMoves(color) {
@@ -1851,7 +1607,6 @@
             }
 
             isKingInCheck(color) {
-                // Find king position
                 let kingRow = -1, kingCol = -1;
                 const kingPiece = color === 'white' ? '♔' : '♚';
                 
@@ -1868,7 +1623,6 @@
 
                 if (kingRow === -1) return false;
 
-                // Check if any opponent piece can attack the king
                 const opponentColor = color === 'white' ? 'black' : 'white';
                 const opponentMoves = this.getAllPossibleMoves(opponentColor);
                 
@@ -1926,40 +1680,9 @@
 
                 reasonText.textContent = this.gameEndReason;
 
-                // Update game stats
                 const gameDuration = this.gameStartTime ? 
                     Math.floor((Date.now() - this.gameStartTime) / 1000) : 0;
                 const formatTime = (seconds) => {
                     const mins = Math.floor(seconds / 60);
                     const secs = seconds % 60;
-                    return `${mins}:${secs.toString().padStart(2, '0')}`;
-                };
-
-                document.getElementById('total-moves').textContent = this.moveHistory.length;
-                document.getElementById('game-duration').textContent = formatTime(gameDuration);
-                
-                const difficultyNames = ['', 'Dễ', 'Trung bình', 'Khó', 'Chuyên gia'];
-                document.getElementById('ai-difficulty-used').textContent = difficultyNames[this.aiDifficulty];
-                
-                document.getElementById('fhe-usage').textContent = 
-                    (window.fheManager && window.fheManager.isInitialized) ? 'Có' : 'Không';
-
-                modal.style.display = 'flex';
-
-                // Record game result on blockchain if connected
-                if (window.web3Manager && window.web3Manager.isConnected) {
-                    console.log('Recording game result on blockchain...');
-                }
-            }
-
-            newGame() {
-                if (this.timerInterval) clearInterval(this.timerInterval);
-                
-                this.board = this.initializeBoard();
-                this.currentPlayer = 'white';
-                this.selectedSquare = null;
-                this.moveHistory = [];
-                this.gameOver = false;
-                this.gamePaused = false;
-                this.gameStartTime = null;
-                this.whiteTime = 600;
+                    return `${mins}:${secs

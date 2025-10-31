@@ -1,7 +1,6 @@
-# FHEAuction: Đấu giá Mù (Blind Auction) Bảo mật Toàn diện
+# FHEAuctionV3: Đấu giá Mù (Blind Auction) Bảo mật Toàn diện
 
 [![Giấy phép: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Build Status](https://img.shields.io/travis/ci/[username-github]/[tên-repo].svg)](https://travis-ci.org/[username-github]/[tên-repo])
 [![Powered by FHEVM](https://img.shields.io/badge/Powered%20by-FHEVM-blue.svg)](https://www.zama.ai/fhevm)
 [![Solidity Version](https://img.shields.io/badge/Solidity-%5E0.8.24-lightgrey.svg)](https://soliditylang.org/)
 
@@ -18,8 +17,6 @@ Dự án này triển khai một phiên đấu giá nơi người tham gia có t
 * [Kiến trúc & Tính năng](#-kiến-trúc--tính-năng)
 * [Luồng hoạt động (Workflow)](#-luồng-hoạt-động-workflow)
 * [Hướng dẫn cho Người dùng dApp (Client-Side)](#-hướng-dẫn-cho-người-dùng-dapp-client-side)
-    * [Cài đặt (NPM)](#cài-đặt-npm)
-    * [Ví dụ: Đặt thầu (Javascript)](#ví-dụ-đặt-thầu-javascript)
 * [Hướng dẫn cho Nhà phát triển (Solidity)](#-hướng-dẫn-cho-nhà-phát-triển-solidity)
     * [Yêu cầu hệ thống](#yêu-cầu-hệ-thống)
     * [Cài đặt & Chạy Local](#cài-đặt--chạy-local)
@@ -27,7 +24,6 @@ Dự án này triển khai một phiên đấu giá nơi người tham gia có t
     * [Triển khai (Deployment)](#triển-khai-deployment)
 * [API Hợp đồng (Chức năng chính)](#-api-hợp-đồng-chức-năng-chính)
 * [An toàn & Bảo mật](#-an-toàn--bảo-mật)
-* [Đóng góp](#-đóng-góp)
 * [Giấy phép](#-giấy-phép)
 
 ---
@@ -73,14 +69,13 @@ Dự án này triển khai một phiên đấu giá nơi người tham gia có t
 
 ## 🛠️ Hướng dẫn cho Nhà phát triển (Solidity)
 
-Phần này dành cho các nhà phát triển muốn fork, kiểm thử, hoặc triển khai hợp đồng `FHEAuction`. Dự án này được xây dựng bằng Hardhat.
+Phần này dành cho các nhà phát triển muốn fork, kiểm thử, hoặc triển khai hợp đồng `FHEAuctionV3`. Dự án này được xây dựng bằng Hardhat.
 
 ### Yêu cầu hệ thống
 
 * [Node.js](https://nodejs.org/) (v18+)
 * [Yarn](https://yarnpkg.com/) (khuyến nghị) hoặc `npm`
 * [Git](https://git-scm.com/)
-* [Docker](https://www.docker.com/) (để chạy node FHEVM local)
 
 ### Cài đặt & Chạy Local
 
@@ -100,21 +95,6 @@ Phần này dành cho các nhà phát triển muốn fork, kiểm thử, hoặc 
 3.  **Biên dịch hợp đồng:**
     ```bash
     npx hardhat compile
-    ```
-
-### Kiểm thử (Testing)
-
-Các bài kiểm thử của FHEVM yêu cầu một node FHEVM đang chạy.
-
-1.  **Khởi chạy FHEVM Node (qua Docker):**
-    ```bash
-    docker run -d -p 8545:8545 zamafhevm/node:latest
-    ```
-    (Đảm bảo cổng 8545 đang rảnh)
-
-2.  **Chạy kiểm thử:**
-    ```bash
-    npx hardhat test
     ```
 
 ### Triển khai (Deployment)
@@ -153,7 +133,9 @@ Bạn phải triển khai hợp đồng này trên một mạng lưới hỗ tr�
 
 4.  **Chạy lệnh Deploy:**
     ```bash
-    npx hardhat run scripts/deploy.ts --network zamaSepolia
+    
+   npx hardhat deploy --network sepolia
+   
     ```
 
 ---
@@ -196,18 +178,6 @@ Hợp đồng này tích hợp nhiều tính năng bảo mật tiêu chuẩn và
 * **Pull-over-Push:** Sử dụng `pendingRefunds` mapping để người dùng tự rút tiền an toàn.
 * **Custom Errors:** Tiết kiệm gas và cung cấp thông báo lỗi rõ ràng.
 * **State Machine:** Ngăn chặn các hành động không hợp lệ (ví dụ: không thể `bid` khi đang `Finalizing`).
-
----
-
-## 🤝 Đóng góp
-
-Chúng tôi hoan nghênh các đóng góp! Vui lòng fork repo, tạo một nhánh mới, và gửi Pull Request. Đối với các thay đổi lớn, vui lòng mở một Issue để thảo luận trước.
-
-1.  Fork dự án.
-2.  Tạo nhánh (`git checkout -b feature/AmazingFeature`).
-3.  Commit thay đổi (`git commit -m 'feat: Add some AmazingFeature'`).
-4.  Push lên nhánh (`git push origin feature/AmazingFeature`).
-5.  Mở Pull Request.
 
 ---
 

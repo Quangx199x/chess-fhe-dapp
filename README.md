@@ -1,6 +1,6 @@
 # FHEAuctionV3: Blind Auction with Full Security
 
-[![Giấy phép: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Powered by FHEVM](https://img.shields.io/badge/Powered%20by-FHEVM-blue.svg)](https://www.zama.ai/fhevm)
 [![Solidity Version](https://img.shields.io/badge/Solidity-%5E0.8.24-lightgrey.svg)](https://soliditylang.org/)
 
@@ -42,8 +42,8 @@ This project implements an auction where participants can bid without revealing 
 ## 🔄 Workflow
 
 1. **Phase 1: Bidding (Active)**
-    * User (Bob) decides to bid `100 Gwei`.
-    * Bob's client-side dApp uses `@fhevm/sdk` to encode `100` into `encryptedBid`.
+    * User (Bob) decides to bid `10 ETH`.
+    * Bob's client-side dApp uses `@fhevm/sdk` to encode `10` into `encryptedBid`.
     * Bob calls the function `bid(encryptedBid, ...)` and sends along `msg.value` (the deposit amount, must be >= `minBidDeposit`).
     * Contract updates `encryptedMaxBid` using FHE operation.
 
@@ -51,7 +51,7 @@ This project implements an auction where participants can bid without revealing 
     * `block.number` passes `auctionEndBlock`. Bidding phase ends.
 
 3. **Phase 3: Finalizing Request**
-    * The owner calls `requestFinalize()`.
+    * The owner/user calls `requestFinalize()`, ( Everyone can call `requestFinalize()`).
     * The contract collects all `encryptedBid`s and sends a decryption request to the Zama KMS Gateway.
 
 4. **Phase 4: Callback & Authentication**
@@ -104,7 +104,7 @@ You must deploy this contract on a network that supports FHEVM (e.g. Zama Sepoli
     Create `.env` file and add Private Key of deploy wallet:
     ```
     PRIVATE_KEY="0x..."
-    SEPOLIA_RPC_URL="https://[rpc-url-cua-ban]"
+    SEPOLIA_RPC_URL="https://[your - rpc-url]"
     ```
 
 2. **Configuring `hardhat.config.ts`:**
@@ -112,11 +112,15 @@ You must deploy this contract on a network that supports FHEVM (e.g. Zama Sepoli
     ```typescript
     const config: HardhatUserConfig = {
       // ...
-      networks: {
-        Sepolian: {
-          url: "[https://devnet.zama.ai](https://devnet.zama.ai)", // Zama RPC
-          accounts: [process.env.PRIVATE_KEY || ''],
-        },
+     sepolia: {
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : {
+        mnemonic: MNEMONIC,
+        path: "m/44'/60'/0'/0/",
+        count: 10,
+      },
+      chainId: 11155111,
+      url: process.env.SEPOLIA_RPC_URL || `https://sepolia.infura.io/v3/${INFURA_API_KEY}`,
+      fhevm: true,
       },
     };
     ```

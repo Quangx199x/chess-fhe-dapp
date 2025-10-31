@@ -20,7 +20,6 @@ Dự án này triển khai một phiên đấu giá nơi người tham gia có t
 * [Hướng dẫn cho Nhà phát triển (Solidity)](#-hướng-dẫn-cho-nhà-phát-triển-solidity)
     * [Yêu cầu hệ thống](#yêu-cầu-hệ-thống)
     * [Cài đặt & Chạy Local](#cài-đặt--chạy-local)
-    * [Kiểm thử (Testing)](#kiểm-thử-testing)
     * [Triển khai (Deployment)](#triển-khai-deployment)
 * [API Hợp đồng (Chức năng chính)](#-api-hợp-đồng-chức-năng-chính)
 * [An toàn & Bảo mật](#-an-toàn--bảo-mật)
@@ -133,9 +132,7 @@ Bạn phải triển khai hợp đồng này trên một mạng lưới hỗ tr�
 
 4.  **Chạy lệnh Deploy:**
     ```bash
-    
-   npx hardhat deploy --network sepolia
-   
+    npx hardhat deploy --network sepolia     
     ```
 
 ---

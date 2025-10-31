@@ -1,183 +1,183 @@
-# FHEAuctionV3: Đấu giá Mù (Blind Auction) Bảo mật Toàn diện
+# FHEAuctionV3: Blind Auction with Full Security
 
 [![Giấy phép: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Powered by FHEVM](https://img.shields.io/badge/Powered%20by-FHEVM-blue.svg)](https://www.zama.ai/fhevm)
 [![Solidity Version](https://img.shields.io/badge/Solidity-%5E0.8.24-lightgrey.svg)](https://soliditylang.org/)
 
-> Một hợp đồng đấu giá mù phi tập trung, bảo mật trên Ethereum, sử dụng **Fully Homomorphic Encryption (FHE)** để đảm bảo tính riêng tư tuyệt đối cho các giá thầu.
+> A decentralized, secure blind auction contract on Ethereum, using **Fully Homomorphic Encryption (FHE)** to ensure absolute privacy of bids.
 
 
 
-Dự án này triển khai một phiên đấu giá nơi người tham gia có thể đặt thầu mà không tiết lộ giá trị của họ cho bất kỳ ai—kể cả quản trị viên hợp đồng—cho đến khi phiên đấu giá kết thúc. Tất cả các so sánh giá thầu (để tìm ra giá thầu cao nhất) được thực hiện **trên dữ liệu đã mã hóa** bằng cách sử dụng `FHE.gt()` và `FHE.select()` từ thư viện FHEVM của Zama.
-
----
-
-## 📚 Mục lục
-
-* [Kiến trúc & Tính năng](#-kiến-trúc--tính-năng)
-* [Luồng hoạt động (Workflow)](#-luồng-hoạt-động-workflow)
-* [Hướng dẫn cho Người dùng dApp (Client-Side)](#-hướng-dẫn-cho-người-dùng-dapp-client-side)
-* [Hướng dẫn cho Nhà phát triển (Solidity)](#-hướng-dẫn-cho-nhà-phát-triển-solidity)
-    * [Yêu cầu hệ thống](#yêu-cầu-hệ-thống)
-    * [Cài đặt & Chạy Local](#cài-đặt--chạy-local)
-    * [Triển khai (Deployment)](#triển-khai-deployment)
-* [API Hợp đồng (Chức năng chính)](#-api-hợp-đồng-chức-năng-chính)
-* [An toàn & Bảo mật](#-an-toàn--bảo-mật)
-* [Giấy phép](#-giấy-phép)
+This project implements an auction where participants can bid without revealing their value to anyone—including the contract administrator—until the auction ends. All bid comparisons (to find the highest bid) are performed **on encrypted data** using `FHE.gt()` and `FHE.select()` from Zama's FHEVM library.
 
 ---
 
-## ✨ Kiến trúc & Tính năng
+## 📚 Table of Contents
 
-* **Bảo mật bởi FHE:** Giá thầu được mã hóa client-side (thành `euint64`) và không bao giờ được giải mã on-chain trong suốt quá trình đấu giá.
-* **Đấu giá Mù Thực sự:** Không ai có thể thấy giá thầu của người khác cho đến khi phiên đấu giá kết thúc, ngăn chặn "front-running" và "bid sniping".
-* **So sánh Đồng hình:** Hợp đồng sử dụng `FHE.gt()` (lớn hơn) và `FHE.select()` (chọn) để tìm ra giá thầu cao nhất mới (`encryptedMaxBid`) hoàn toàn trên dữ liệu đã mã hóa.
-* **Xác thực sau Giải mã:** Để duy trì tính riêng tư, các quy tắc (như `MIN_BID_INCREMENT`) chỉ được kiểm tra *sau khi* phiên đấu giá kết thúc và KMS đã giải mã các giá thầu. Các giá thầu không hợp lệ sẽ được hoàn tiền 100%.
-* **Cơ chế Chống-Snipe:** Tự động gia hạn thời gian đấu giá (`EXTENSION_DURATION_BLOCKS`) nếu có giá thầu được đặt gần cuối.
-* **Bảo mật Nâng cao:** Tích hợp `ReentrancyGuard`, EIP-712, xác thực `onlyGateway` cho callback KMS, và cơ chế hoàn tiền "Pull-over-Push".
-* **Cơ chế Trạng thái (State Machine):** Quản lý vòng đời đấu giá qua 5 trạng thái rõ ràng (`Active`, `Ended`, `Finalizing`, `Finalized`, `Emergency`).
-
----
-
-## 🔄 Luồng hoạt động (Workflow)
-
-1.  **Giai đoạn 1: Đặt thầu (Active)**
-    * Người dùng (Bob) quyết định đặt thầu `100 Gwei`.
-    * Client-side dApp của Bob sử dụng `@fhevm/sdk` để mã hóa `100` thành `encryptedBid`.
-    * Bob gọi hàm `bid(encryptedBid, ...)` và gửi kèm `msg.value` (tiền ký gửi, phải >= `minBidDeposit`).
-    * Hợp đồng cập nhật `encryptedMaxBid` bằng phép toán FHE.
-
-2.  **Giai đoạn 2: Kết thúc (Ended)**
-    * `block.number` vượt qua `auctionEndBlock`. Giai đoạn đặt thầu kết thúc.
-
-3.  **Giai đoạn 3: Yêu cầu giải mã (Finalizing)**
-    * Chủ sở hữu (owner) gọi `requestFinalize()`.
-    * Hợp đồng thu thập tất cả các `encryptedBid` và gửi yêu cầu giải mã đến Zama KMS Gateway.
-
-4.  **Giai đoạn 4: Callback & Xác thực**
-    * KMS Gateway giải mã các giá thầu và gọi lại hàm `onDecryptionCallback()` với các giá trị plaintext.
-    * Hợp đồng xác thực chữ ký của KMS.
-
-5.  **Giai đoạn 5: Hoàn tất (Finalized)**
-    * Hợp đồng *lúc này mới* lặp qua các giá thầu plaintext, kiểm tra `MIN_BID_INCREMENT`, và xác định người thắng cuộc hợp lệ.
-    * Chuyển tiền cho người hưởng lợi (`beneficiary`) và thu phí (`feeCollector`).
-    * Người thua và người đặt thầu không hợp lệ nhận được `pendingRefunds` (tiền chờ hoàn).
-    * Một vòng đấu giá mới (`currentRound + 1`) tự động bắt đầu.
+* [Architecture & Features](#-architecture--features)
+* [Workflow](#-workflow-workflow)
+* [Guide for dApp Users (Client-Side)](#-guide-for-dapp-client-side-users)
+* [Developer Guide (Solidity)](#-solidity-developer-guide)
+    * [System Requirements](#system-requirements)
+    * [Install & Run Local](#install--run-local)
+    * [Deployment](#deployment-deployment)
+* [Contract API (Main Function)](#-api-contract-main-function)
+* [Safety & Security](#-safety--security)
+* [License](#-license)
 
 ---
 
-## 🛠️ Hướng dẫn cho Nhà phát triển (Solidity)
+## ✨ Architecture & Features
 
-Phần này dành cho các nhà phát triển muốn fork, kiểm thử, hoặc triển khai hợp đồng `FHEAuctionV3`. Dự án này được xây dựng bằng Hardhat.
+* **Security by FHE:** Bids are encrypted client-side (to `euint64`) and never decrypted on-chain during the auction.
+* **True Blind Auction:** No one can see anyone else's bids until the auction ends, preventing "front-running" and "bid sniping".
+* **Homomorphic Comparison:** The contract uses `FHE.gt()` (greater than) and `FHE.select()` (select) to find the new highest bid (`encryptedMaxBid`) entirely on the encrypted data.
+* **Post-Decryption Validation:** To maintain privacy, rules (like `MIN_BID_INCREMENT`) are only checked *after* the auction ends and KMS has decrypted the bids. Invalid bids will be refunded 100%.
+* **Anti-Snipe Mechanism:** Automatically extend the auction duration (`EXTENSION_DURATION_BLOCKS`) if a bid is placed near the end.
+* **Advanced Security:** Integrated `ReentrancyGuard`, EIP-712, `onlyGateway` authentication for KMS callback, and "Pull-over-Push" refund mechanism.
+* **State Machine:** Manage the auction lifecycle through 5 clear states (`Active`, `Ended`, `Finalizing`, `Finalized`, `Emergency`).
 
-### Yêu cầu hệ thống
+---
+
+## 🔄 Workflow
+
+1. **Phase 1: Bidding (Active)**
+    * User (Bob) decides to bid `100 Gwei`.
+    * Bob's client-side dApp uses `@fhevm/sdk` to encode `100` into `encryptedBid`.
+    * Bob calls the function `bid(encryptedBid, ...)` and sends along `msg.value` (the deposit amount, must be >= `minBidDeposit`).
+    * Contract updates `encryptedMaxBid` using FHE operation.
+
+2. **Phase 2: Ended**
+    * `block.number` passes `auctionEndBlock`. Bidding phase ends.
+
+3. **Phase 3: Finalizing Request**
+    * The owner calls `requestFinalize()`.
+    * The contract collects all `encryptedBid`s and sends a decryption request to the Zama KMS Gateway.
+
+4. **Phase 4: Callback & Authentication**
+    * KMS Gateway decrypts the bids and calls the `onDecryptionCallback()` function with the plaintext values.
+    * KMS signature authentication contract.
+
+5. **Phase 5: Finalized**
+    * The contract *now* iterates through the plaintext bids, checks `MIN_BID_INCREMENT`, and determines a valid winner.
+    * Transfer money to the beneficiary (`beneficiary`) and collect fees (`feeCollector`).
+    * Losers and invalid bidders receive `pendingRefunds`.
+    * A new auction round (`currentRound + 1`) starts automatically.
+
+---
+
+## 🛠️ Developer Guide (Solidity)
+
+This section is for developers who want to fork, test, or deploy the `FHEAuctionV3` contract. This project is built using Hardhat.
+
+### System requirements
 
 * [Node.js](https://nodejs.org/) (v18+)
-* [Yarn](https://yarnpkg.com/) (khuyến nghị) hoặc `npm`
+* [Yarn](https://yarnpkg.com/) (recommended) or `npm`
 * [Git](https://git-scm.com/)
 
-### Cài đặt & Chạy Local
+### Install & Run Local
 
 1.  **Clone repo:**
     ```bash
     git clone [https://github.com/](https://github.com/)[username-github]/[tên-repo].git
-    cd [tên-repo]
+    cd [repo-name]
     ```
 
-2.  **Cài đặt dependencies:**
+2. **Install dependencies:**
     ```bash
     yarn install
-    # hoặc
+    # or
     npm install
     ```
 
-3.  **Biên dịch hợp đồng:**
+3. **Contract translation:**
     ```bash
     npx hardhat compile
     ```
 
-### Triển khai (Deployment)
+### Deployment
 
-Bạn phải triển khai hợp đồng này trên một mạng lưới hỗ trợ FHEVM (ví dụ: Zama Sepolia Testnet).
+You must deploy this contract on a network that supports FHEVM (e.g. Zama Sepolia Testnet).
 
-1.  **Cấu hình `.env`:**
-    Tạo file `.env` và thêm Private Key của ví deploy:
+1. **Configure `.env`:**
+    Create `.env` file and add Private Key of deploy wallet:
     ```
     PRIVATE_KEY="0x..."
     SEPOLIA_RPC_URL="https://[rpc-url-cua-ban]"
     ```
 
-2.  **Cấu hình `hardhat.config.ts`:**
-    Đảm bảo bạn đã thêm mạng Zama Sepolia:
+2. **Configuring `hardhat.config.ts`:**
+    Make sure you have added the Zama Sepolia network:
     ```typescript
     const config: HardhatUserConfig = {
       // ...
       networks: {
-        zamaSepolia: {
-          url: "[https://devnet.zama.ai](https://devnet.zama.ai)", // RPC của Zama
+        Sepolian: {
+          url: "[https://devnet.zama.ai](https://devnet.zama.ai)", // Zama RPC
           accounts: [process.env.PRIVATE_KEY || ''],
         },
       },
     };
     ```
 
-3.  **Chuẩn bị Script Triển khai (`deploy.ts`):**
-    Bạn cần cung cấp các tham số cho `constructor`:
-    * `_minDeposit`: Tiền ký gửi tối thiểu (ví dụ: `0.1 ETH`).
-    * `_pauserSet`: Địa chỉ hợp đồng `IPauserSet` (hoặc `address(0)` nếu không dùng).
-    * `_beneficiary`: Địa chỉ nhận tiền thắng.
-    * `_gatewayContract`: **QUAN TRỌNG:** Địa chỉ Gateway của Zama.
+3. **Prepare Deployment Script (`deploy.ts`):**
+    You need to provide parameters to the `constructor`:
+    * `_minDeposit`: Minimum deposit amount (e.g. `0.1 ETH`).
+    * `_pauserSet`: The address of the `IPauserSet` contract (or `address(0)` if not used).
+    * `_beneficiary`: Address to receive winnings.
+    * `_gatewayContract`: **IMPORTANT:** Zama's Gateway address.
         * *Sepolia Testnet: `0xa02Cda4Ca3a71D7C46997716F4283aa851C28812`*
-    * `_feeCollector`: Địa chỉ nhận phí nền tảng.
+    * `_feeCollector`: Address to receive platform fees.
 
-4.  **Chạy lệnh Deploy:**
+4. **Run the Deploy command:**
     ```bash
     npx hardhat deploy --network sepolia     
     ```
 
 ---
 
-## 📜 API Hợp đồng (Chức năng chính)
+## 📜 Contract API (Main Function)
 
-Các hàm quan trọng nhất dành cho người dùng và quản trị viên.
+The most important functions for users and administrators.
 
-### Chức năng cho Người dùng (Bidders)
+### Functions for Users (Bidders)
 
 * **`bid(externalEuint64 encryptedBid, bytes calldata inputProof, bytes32 publicKey, bytes calldata signature)`**
-    * Hàm `payable` để đặt thầu. Gửi giá thầu đã mã hóa (từ FHE-SDK) và tiền ký gửi (`msg.value`).
+    * `payable` function to place bid. Send encoded bid (from FHE-SDK) and deposit (`msg.value`).
 * **`cancelBid()`**
-    * Cho phép hủy thầu và nhận lại 100% tiền ký gửi *trước khi* phiên đấu giá kết thúc.
+    * Allows bid cancellation and 100% deposit refund *before* the auction ends.
 * **`withdrawRefund()`**
-    * *(Giả định hàm này tồn tại dựa trên `pendingRefunds`)*: Rút lại tiền hoàn (nếu bạn thua hoặc giá thầu không hợp lệ) sau khi phiên đấu giá kết thúc.
+    * *(Assuming this function exists based on `pendingRefunds`)*: Withdraw the refund (if you lose or the bid is invalid) after the auction ends.
 
-### Chức năng cho Chủ sở hữu (Owner)
+### Functions for Owner
 
 * **`requestFinalize()`**
-    * Kích hoạt quá trình kết thúc và giải mã. Chỉ owner mới có thể gọi nếu có người đặt thầu.
+    * Trigger the termination and decryption process. Only the owner can call if there is a bid.
 * **`cancelDecryption()`**
-    * Hàm khẩn cấp để hủy yêu cầu giải mã nếu KMS bị kẹt (sau thời gian `DECRYPTION_TIMEOUT_BLOCKS`).
+    * Emergency function to cancel decryption request if KMS gets stuck (after `DECRYPTION_TIMEOUT_BLOCKS` time).
 * **`setBeneficiary(address _newBeneficiary)`**
-    * Cập nhật địa chỉ nhận tiền thắng.
+    * Update the winnings receiving address.
 * **`setFeeCollector(address _newCollector)`**
-    * Cập nhật địa chỉ nhận phí.
+    * Update the fee receiving address.
 * **`pause()` / `unpause()`**
-    * Tạm dừng/tiếp tục hợp đồng (cục bộ).
+    * Suspend/resume contract (local).
 
 ---
 
-## 🛡️ An toàn & Bảo mật
+## 🛡️ Safe & Secure
 
-Hợp đồng này tích hợp nhiều tính năng bảo mật tiêu chuẩn và nâng cao:
+This contract incorporates many standard and advanced security features:
 
-* **ReentrancyGuard:** `nonReentrant` modifier trên các hàm thay đổi trạng thái chính.
-* **EIP-712:** Xác thực chữ ký để liên kết public key FHE với địa chỉ Ethereum.
-* **Gateway Authentication:** `onlyGateway` modifier đảm bảo chỉ Zama KMS mới có thể gửi kết quả giải mã.
-* **Pull-over-Push:** Sử dụng `pendingRefunds` mapping để người dùng tự rút tiền an toàn.
-* **Custom Errors:** Tiết kiệm gas và cung cấp thông báo lỗi rõ ràng.
-* **State Machine:** Ngăn chặn các hành động không hợp lệ (ví dụ: không thể `bid` khi đang `Finalizing`).
+* **ReentrancyGuard:** `nonReentrant` modifier on functions that change the main state.
+* **EIP-712:** Signature verification to associate FHE public key with Ethereum address.
+* **Gateway Authentication:** The `onlyGateway` modifier ensures that only Zama KMS can send decryption results.
+* **Pull-over-Push:** Use `pendingRefunds` mapping to allow users to withdraw funds safely.
+* **Custom Errors:** Save gas and provide clear error messages.
+* **State Machine:** Prevent invalid actions (e.g. can't `bid` while `Finalizing`).
 
 ---
 
-## ⚖️ Giấy phép
+## ⚖️ License
 
-Dự án này được cấp phép theo **Giấy phép MIT**. Xem file `LICENSE` để biết chi tiết.
+This project is licensed under the **MIT License**. See the `LICENSE` file for details.

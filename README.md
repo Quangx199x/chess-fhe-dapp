@@ -71,15 +71,146 @@ Dự án này triển khai một phiên đấu giá nơi người tham gia có t
 
 ---
 
-## 💻 Hướng dẫn cho Người dùng dApp (Client-Side)
+## 🛠️ Hướng dẫn cho Nhà phát triển (Solidity)
 
-Đây là cách tích hợp và tương tác với hợp đồng FHEAuction từ một ứng dụng Javascript/TypeScript (ví dụ: React, Next.js, Vue).
+Phần này dành cho các nhà phát triển muốn fork, kiểm thử, hoặc triển khai hợp đồng `FHEAuction`. Dự án này được xây dựng bằng Hardhat.
 
-### Cài đặt (NPM)
+### Yêu cầu hệ thống
 
-Bạn sẽ cần `ethers` (hoặc `viem`) để tương tác với blockchain và `@fhevm/sdk` để mã hóa giá thầu.
+* [Node.js](https://nodejs.org/) (v18+)
+* [Yarn](https://yarnpkg.com/) (khuyến nghị) hoặc `npm`
+* [Git](https://git-scm.com/)
+* [Docker](https://www.docker.com/) (để chạy node FHEVM local)
 
-```bash
-npm install ethers @fhevm/sdk
-# hoặc
-yarn add ethers @fhevm/sdk
+### Cài đặt & Chạy Local
+
+1.  **Clone repo:**
+    ```bash
+    git clone [https://github.com/](https://github.com/)[username-github]/[tên-repo].git
+    cd [tên-repo]
+    ```
+
+2.  **Cài đặt dependencies:**
+    ```bash
+    yarn install
+    # hoặc
+    npm install
+    ```
+
+3.  **Biên dịch hợp đồng:**
+    ```bash
+    npx hardhat compile
+    ```
+
+### Kiểm thử (Testing)
+
+Các bài kiểm thử của FHEVM yêu cầu một node FHEVM đang chạy.
+
+1.  **Khởi chạy FHEVM Node (qua Docker):**
+    ```bash
+    docker run -d -p 8545:8545 zamafhevm/node:latest
+    ```
+    (Đảm bảo cổng 8545 đang rảnh)
+
+2.  **Chạy kiểm thử:**
+    ```bash
+    npx hardhat test
+    ```
+
+### Triển khai (Deployment)
+
+Bạn phải triển khai hợp đồng này trên một mạng lưới hỗ trợ FHEVM (ví dụ: Zama Sepolia Testnet).
+
+1.  **Cấu hình `.env`:**
+    Tạo file `.env` và thêm Private Key của ví deploy:
+    ```
+    PRIVATE_KEY="0x..."
+    SEPOLIA_RPC_URL="https://[rpc-url-cua-ban]"
+    ```
+
+2.  **Cấu hình `hardhat.config.ts`:**
+    Đảm bảo bạn đã thêm mạng Zama Sepolia:
+    ```typescript
+    const config: HardhatUserConfig = {
+      // ...
+      networks: {
+        zamaSepolia: {
+          url: "[https://devnet.zama.ai](https://devnet.zama.ai)", // RPC của Zama
+          accounts: [process.env.PRIVATE_KEY || ''],
+        },
+      },
+    };
+    ```
+
+3.  **Chuẩn bị Script Triển khai (`deploy.ts`):**
+    Bạn cần cung cấp các tham số cho `constructor`:
+    * `_minDeposit`: Tiền ký gửi tối thiểu (ví dụ: `0.1 ETH`).
+    * `_pauserSet`: Địa chỉ hợp đồng `IPauserSet` (hoặc `address(0)` nếu không dùng).
+    * `_beneficiary`: Địa chỉ nhận tiền thắng.
+    * `_gatewayContract`: **QUAN TRỌNG:** Địa chỉ Gateway của Zama.
+        * *Sepolia Testnet: `0xa02Cda4Ca3a71D7C46997716F4283aa851C28812`*
+    * `_feeCollector`: Địa chỉ nhận phí nền tảng.
+
+4.  **Chạy lệnh Deploy:**
+    ```bash
+    npx hardhat run scripts/deploy.ts --network zamaSepolia
+    ```
+
+---
+
+## 📜 API Hợp đồng (Chức năng chính)
+
+Các hàm quan trọng nhất dành cho người dùng và quản trị viên.
+
+### Chức năng cho Người dùng (Bidders)
+
+* **`bid(externalEuint64 encryptedBid, bytes calldata inputProof, bytes32 publicKey, bytes calldata signature)`**
+    * Hàm `payable` để đặt thầu. Gửi giá thầu đã mã hóa (từ FHE-SDK) và tiền ký gửi (`msg.value`).
+* **`cancelBid()`**
+    * Cho phép hủy thầu và nhận lại 100% tiền ký gửi *trước khi* phiên đấu giá kết thúc.
+* **`withdrawRefund()`**
+    * *(Giả định hàm này tồn tại dựa trên `pendingRefunds`)*: Rút lại tiền hoàn (nếu bạn thua hoặc giá thầu không hợp lệ) sau khi phiên đấu giá kết thúc.
+
+### Chức năng cho Chủ sở hữu (Owner)
+
+* **`requestFinalize()`**
+    * Kích hoạt quá trình kết thúc và giải mã. Chỉ owner mới có thể gọi nếu có người đặt thầu.
+* **`cancelDecryption()`**
+    * Hàm khẩn cấp để hủy yêu cầu giải mã nếu KMS bị kẹt (sau thời gian `DECRYPTION_TIMEOUT_BLOCKS`).
+* **`setBeneficiary(address _newBeneficiary)`**
+    * Cập nhật địa chỉ nhận tiền thắng.
+* **`setFeeCollector(address _newCollector)`**
+    * Cập nhật địa chỉ nhận phí.
+* **`pause()` / `unpause()`**
+    * Tạm dừng/tiếp tục hợp đồng (cục bộ).
+
+---
+
+## 🛡️ An toàn & Bảo mật
+
+Hợp đồng này tích hợp nhiều tính năng bảo mật tiêu chuẩn và nâng cao:
+
+* **ReentrancyGuard:** `nonReentrant` modifier trên các hàm thay đổi trạng thái chính.
+* **EIP-712:** Xác thực chữ ký để liên kết public key FHE với địa chỉ Ethereum.
+* **Gateway Authentication:** `onlyGateway` modifier đảm bảo chỉ Zama KMS mới có thể gửi kết quả giải mã.
+* **Pull-over-Push:** Sử dụng `pendingRefunds` mapping để người dùng tự rút tiền an toàn.
+* **Custom Errors:** Tiết kiệm gas và cung cấp thông báo lỗi rõ ràng.
+* **State Machine:** Ngăn chặn các hành động không hợp lệ (ví dụ: không thể `bid` khi đang `Finalizing`).
+
+---
+
+## 🤝 Đóng góp
+
+Chúng tôi hoan nghênh các đóng góp! Vui lòng fork repo, tạo một nhánh mới, và gửi Pull Request. Đối với các thay đổi lớn, vui lòng mở một Issue để thảo luận trước.
+
+1.  Fork dự án.
+2.  Tạo nhánh (`git checkout -b feature/AmazingFeature`).
+3.  Commit thay đổi (`git commit -m 'feat: Add some AmazingFeature'`).
+4.  Push lên nhánh (`git push origin feature/AmazingFeature`).
+5.  Mở Pull Request.
+
+---
+
+## ⚖️ Giấy phép
+
+Dự án này được cấp phép theo **Giấy phép MIT**. Xem file `LICENSE` để biết chi tiết.
